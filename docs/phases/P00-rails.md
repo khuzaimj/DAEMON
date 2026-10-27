@@ -44,3 +44,20 @@
    *(Recommended default: Yes)*
 2. **Export Templates for 4.7.2:** Have you downloaded the matching export templates in Godot (via Editor -> Manage Export Templates), or would you like to install them before we run the export step in P0.6?
    *(Recommended default: Download/install 4.7.2 templates before P0.6)*
+
+
+---
+
+# P00 — Rails · Report
+Done: P0.1 - P0.7 · Commits: 1 · Tests: 1 passing · check.ps1: green
+Evidence:
+- GUT: `res://tests/unit/test_sanity.gd` (1/1 passed)
+- Quality gate: `tools/check.ps1 -Full` green (Import, LoadAll, ValidateData, GUT, Graphics Smoke, Export, Frozen Smoke)
+- Export binary: `build/Daemon.exe` (exits 0 with `--smoke`)
+Deviations from the plan: none
+Known issues: none
+Playtest:
+1. Run `build/Daemon.exe` or `& $env:GODOT --path .`
+2. Verify 480x270 integer-scaled viewport and palette colors on your monitor.
+3. Press ESC to quit cleanly.
+Ask: accept, or changes?
