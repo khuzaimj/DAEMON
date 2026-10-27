@@ -35,6 +35,18 @@ func _ready() -> void:
 		add_child(rect)
 		visual_rect = rect
 
-func _physics_process(_delta: float) -> void:
+## Stepped once per tick by World movement system
+func step_movement(delta: float) -> void:
 	if is_carried and carrier != null and is_instance_valid(carrier):
 		global_position = carrier.global_position + carrier.facing * 14.0
+		return
+
+	if not is_carried and velocity.length_squared() > 1.0:
+		var motion: Vector2 = velocity * delta
+		var col: KinematicCollision2D = move_and_collide(motion)
+		if col != null:
+			velocity = velocity.slide(col.get_normal()) * 0.5
+		# Apply friction decay
+		velocity = velocity.move_toward(Vector2.ZERO, 300.0 * delta)
+		if velocity.length_squared() <= 1.0:
+			velocity = Vector2.ZERO

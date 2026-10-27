@@ -112,10 +112,11 @@
 2. **F8 Body Cycling:** Cycle player machine through all 10 bodies in exact §1.3 table order? — *Approved: Yes.*
 
 # P02 — Machines, Bodies, Abilities · Report
-Done: P2.1, P2.2, P2.3, P2.4a, P2.4b, P2.4c, P2.4d, P2.4e, P2.5 · Commits: 8 · Tests: 40 passing (348 asserts) · check.ps1 -Full: green
+Done: P2.1, P2.2, P2.3, P2.4a, P2.4b, P2.4c, P2.4d, P2.4e, P2.5, Audit Fixes (6 items) · Commits: 9 · Tests: 45 passing (364 asserts) · check.ps1 -Full: green
 Evidence:
 - `tools/validate_data.gd`: 41 JSON files verified (10 bodies, 19 abilities, enemies, AI, sizes, tiles, zones), 6 rooms verified with Validator v1 (0 errors).
-- `tests/`: 18 test scripts, 40 tests, 348 assertions, 0 failures, 0 orphans.
+- `tests/`: 18 test scripts, 45 tests, 364 assertions, 0 failures, 0 orphans.
+- Audit fixes verified: knockback decay & resistance, World tick ownership for Projectile/Crate, thrown crate motion, procedural 2D ability draw, Cursor initial 02/02 HP spawn, Diver land speed (2.4) vs liquid (3.6), Loader ram impact damage (3) + knockback, and populated Body Range entities.
 - Performance: 60 FPS, average simulation tick 0.028 ms (budget <= 4.0 ms).
 - Exported Windows executable: `build/Daemon.exe` (clean build and frozen smoke test passed).
 - Screenshots: `shots/debug_05.png`, `shots/debug_06.png`.
@@ -124,6 +125,7 @@ Known issues: none
 Playtest:
 1. Run `& build/Daemon.exe --room debug_05`
 2. Press F8 to cycle player body across all 10 bodies (Cursor -> Janitor -> Loader -> Sentry -> Drone -> Welder -> Diver -> Crawler -> Courier -> Medic) and observe HUD updates (BODY, HP, HEAT, SIZE).
-3. Test primary (J) and secondary (K) abilities: Janitor Sweep clears grime `,` tiles; Loader Ram breaks cracked walls `X`; Welder Torch cuts weld seams `%`.
-4. Test passives: Diver navigates coolant `~` without heat penalty; Drone hovers over pits `o`; Crawler ignores spikes `^`.
+3. Test primary (J) and secondary (K) abilities: Janitor Sweep clears grime `,` tiles; Loader Ram breaks cracked walls `X` and damages/knocks back machines; Welder Torch cuts weld seams `%`; Medic Repair Beam heals nearby machines.
+4. Interact with entities in Body Range: lift and throw crates with Loader (L), tow with Drone (K), test abilities on dormant machines.
+5. Test passives: Diver navigates coolant `~` at 3.6 tiles/s and land at 2.4 tiles/s; Drone hovers over pits `o`; Crawler ignores spikes `^`.
 Ask: accept, or changes?

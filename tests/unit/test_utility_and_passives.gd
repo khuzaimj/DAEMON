@@ -49,6 +49,10 @@ func test_lift_and_throw_crate() -> void:
 	assert_false(crate.is_carried)
 	assert_gt(crate.velocity.x, 0.0, "Thrown crate moves forward")
 
+	var throw_start_x: float = crate.position.x
+	crate.step_movement(1.0 / 60.0)
+	assert_gt(crate.position.x, throw_start_x, "Thrown crate position.x should increase after stepping")
+
 func test_passive_rules() -> void:
 	var room: RoomRuntime = world.active_room
 	assert_not_null(room)

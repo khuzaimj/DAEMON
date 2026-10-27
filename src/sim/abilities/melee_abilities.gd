@@ -37,7 +37,7 @@ static func start_melee_arc(machine: Machine, data: Dictionary, dir: Vector2) ->
 			if AbilityMath.is_point_in_arc(origin, norm_dir, target.global_position, arc_deg, radius_px):
 				target.take_damage(damage, "kinetic")
 				var kb_vec: Vector2 = AbilityMath.calculate_knockback(origin, target.global_position, knockback * float(Grid.TILE_SIZE))
-				target.velocity += kb_vec
+				target.apply_knockback(kb_vec)
 
 static func start_claw(machine: Machine, data: Dictionary, dir: Vector2) -> void:
 	if machine == null or not is_instance_valid(machine):
@@ -59,7 +59,7 @@ static func start_claw(machine: Machine, data: Dictionary, dir: Vector2) -> void
 			if AbilityMath.is_point_in_arc(origin, norm_dir, target.global_position, arc_deg, radius_px):
 				target.take_damage(damage, "kinetic")
 				var kb_vec: Vector2 = AbilityMath.calculate_knockback(origin, target.global_position, knockback * float(Grid.TILE_SIZE))
-				target.velocity += kb_vec
+				target.apply_knockback(kb_vec)
 
 static func start_suction(machine: Machine, data: Dictionary, _dir: Vector2) -> void:
 	if machine == null or not is_instance_valid(machine):

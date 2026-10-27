@@ -22,5 +22,10 @@
     "#............................#",
     "##############################"
   ],
-  "entities": []
+  "entities": [
+    { "id": "spawn", "kind": "spawn_cursor", "at": [3, 7] },
+    { "id": "crate_s", "kind": "crate", "at": [6, 4], "weight": 0, "size": "s" },
+    { "id": "sentry_target", "kind": "machine", "model": "sentry", "state": "dormant", "at": [20, 3] },
+    { "id": "medic_target", "kind": "machine", "model": "medic", "state": "dormant", "at": [20, 11] }
+  ]
 }

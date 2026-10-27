@@ -23,5 +23,11 @@
     "#............................#",
     "##############################"
   ],
-  "entities": []
+  "entities": [
+    { "id": "spawn", "kind": "spawn_cursor", "at": [3, 7] },
+    { "id": "crate_m", "kind": "crate", "at": [5, 3], "weight": 1, "size": "m" },
+    { "id": "crate_heavy", "kind": "crate", "at": [5, 11], "weight": 2, "size": "m" },
+    { "id": "jan_target", "kind": "machine", "model": "janitor", "state": "dormant", "at": [20, 3] },
+    { "id": "loader_target", "kind": "machine", "model": "loader", "state": "dormant", "at": [20, 11] }
+  ]
 }

@@ -35,7 +35,15 @@ func setup(p_machine: Machine, primary_id: String, secondary_id: String) -> void
 	_load_ability_data()
 
 func _load_ability_data() -> void:
-	var data_node: Node = get_node_or_null("/root/Data")
+	var data_node: Node = null
+	if is_inside_tree():
+		data_node = get_node_or_null("/root/Data")
+	if data_node == null:
+		var main_loop: MainLoop = Engine.get_main_loop()
+		if main_loop is SceneTree:
+			var root_node: Window = (main_loop as SceneTree).root
+			if root_node != null:
+				data_node = root_node.get_node_or_null("Data")
 	if data_node != null and data_node.has_method("get_json"):
 		if not primary_slot["id"].is_empty():
 			var p_path: String = "res://data/abilities/%s.json" % primary_slot["id"]
@@ -144,6 +152,8 @@ func _execute_ability(slot_name: String, slot: Dictionary, data: Dictionary, dir
 			UtilityAbilities.start_patch(machine, data, dir)
 	
 	ability_triggered.emit(slot_name, str(slot["id"]), kind, dir)
+	if machine != null:
+		machine.queue_redraw()
 
 func _step_slot(slot_name: String, slot: Dictionary, data: Dictionary, _held: bool) -> void:
 	if slot["state"] == "idle":
@@ -157,3 +167,5 @@ func _step_slot(slot_name: String, slot: Dictionary, data: Dictionary, _held: bo
 			slot["state"] = "idle"
 			slot["ticks_left"] = 0
 			ability_finished.emit(slot_name, str(slot["id"]))
+			if machine != null:
+				machine.queue_redraw()

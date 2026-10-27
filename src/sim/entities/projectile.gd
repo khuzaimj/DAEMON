@@ -42,9 +42,6 @@ func setup(source: Machine, dir: Vector2, speed_px: float, max_dist_px: float, d
 func _draw() -> void:
 	draw_circle(Vector2.ZERO, radius, proj_color)
 
-func _physics_process(delta: float) -> void:
-	step(delta)
-
 func step(delta: float) -> void:
 	if not is_active:
 		return
@@ -82,7 +79,7 @@ func _apply_hit(target_machine: Machine) -> void:
 	target_machine.take_damage(damage, damage_type)
 	if not status_on_hit.is_empty():
 		target_machine.apply_status(status_on_hit, status_duration_ticks)
-	target_machine.velocity += velocity.normalized() * (knockback_force * float(Grid.TILE_SIZE))
+	target_machine.apply_knockback(velocity.normalized() * (knockback_force * float(Grid.TILE_SIZE)))
 	queue_free()
 
 func _on_area_entered(area: Area2D) -> void:

@@ -75,7 +75,11 @@ func test_claw_damage_and_suction_pull() -> void:
 	}, Vector2.RIGHT)
 	
 	assert_lt(target.state.current_integrity, start_hp, "Claw should damage target in arc")
-	
+	assert_gt(target.knockback_velocity.x, 0.0, "Knockback impulse should be applied to target")
+	var target_start_x: float = target.position.x
+	target.step_movement(1.0 / 60.0)
+	assert_gt(target.position.x, target_start_x, "Target position should shift from knockback after step_movement()")
+
 	# Test suction
 	var far_target: Machine = machine_scene.instantiate() as Machine
 	far_target.body_id = "cursor"
@@ -92,3 +96,16 @@ func test_claw_damage_and_suction_pull() -> void:
 	
 	var end_dist: float = crawler.position.distance_to(far_target.position)
 	assert_lt(end_dist, start_dist, "Suction should pull target closer")
+
+func test_knockback_resist_passive() -> void:
+	var machine_scene: PackedScene = load("res://scenes/machine.tscn")
+	var normal_machine: Machine = machine_scene.instantiate() as Machine
+	add_child_autoqfree(normal_machine)
+	normal_machine.apply_knockback(Vector2(100.0, 0.0))
+	assert_almost_eq(normal_machine.knockback_velocity.x, 100.0, 0.01)
+
+	var resist_machine: Machine = machine_scene.instantiate() as Machine
+	add_child_autoqfree(resist_machine)
+	resist_machine.passives = ["knockback_resist"]
+	resist_machine.apply_knockback(Vector2(100.0, 0.0))
+	assert_almost_eq(resist_machine.knockback_velocity.x, 25.0, 0.01, "Knockback resist reduces knockback by 75%")

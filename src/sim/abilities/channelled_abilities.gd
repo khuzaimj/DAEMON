@@ -73,10 +73,12 @@ static func start_repair_beam(machine: Machine, data: Dictionary, dir: Vector2) 
 	
 	var world_node: World = _find_world(machine)
 	if world_node != null:
+		var healed_targets: Array[Machine] = []
 		for target: Machine in world_node.machines:
-			if target == machine or not is_instance_valid(target):
+			if target == machine or not is_instance_valid(target) or healed_targets.has(target):
 				continue
 			if AbilityMath.is_point_in_cone(origin, norm_dir, target.global_position, 30.0, range_px):
+				healed_targets.append(target)
 				target.heal(heal_amount)
 
 static func _break_weld_tiles_in_cone(room: RoomRuntime, origin: Vector2, facing: Vector2, angle_deg: float, range_px: float) -> void:

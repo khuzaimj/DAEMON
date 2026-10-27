@@ -12,7 +12,9 @@ static func start_charge_dash(machine: Machine, data: Dictionary, dir: Vector2) 
 	var ticks: int = AbilityMath.seconds_to_ticks(duration_sec)
 	
 	var norm_dir: Vector2 = dir.normalized() if dir != Vector2.ZERO else machine.facing
-	machine.start_dash(norm_dir, speed_px, ticks, true, false, false)
+	var damage: int = int(params.get("damage", 3))
+	var knockback: float = float(params.get("knockback", 2.0))
+	machine.start_dash(norm_dir, speed_px, ticks, true, false, false, damage, knockback)
 
 static func start_dash(machine: Machine, data: Dictionary, dir: Vector2) -> void:
 	if machine == null or not is_instance_valid(machine):

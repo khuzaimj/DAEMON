@@ -19,6 +19,8 @@ var active_room: RoomRuntime = null
 var incoming_room: RoomRuntime = null
 var player_machine: Machine = null
 var machines: Array[Machine] = []
+var crates: Array[Crate] = []
+var projectiles: Array[Projectile] = []
 
 # Debug tooling state
 var sim_duration_ms: float = 0.0
@@ -36,10 +38,43 @@ var recorded_input_stream: Array[Dictionary] = []
 @onready var warp_input: LineEdit = $WarpDialog/LineEdit
 
 func _ready() -> void:
+	if entities_container != null:
+		entities_container.child_entered_tree.connect(_on_entity_child_entered)
+		entities_container.child_exiting_tree.connect(_on_entity_child_exiting)
 	if active_room == null and current_room_id != "":
 		load_room(current_room_id)
 	if warp_input != null:
 		warp_input.text_submitted.connect(_on_warp_submitted)
+
+func _on_entity_child_entered(node: Node) -> void:
+	if node is Crate:
+		var c: Crate = node as Crate
+		if not crates.has(c):
+			crates.append(c)
+	elif node is Projectile:
+		var p: Projectile = node as Projectile
+		if not projectiles.has(p):
+			projectiles.append(p)
+
+func _on_entity_child_exiting(node: Node) -> void:
+	if node is Machine:
+		machines.erase(node)
+	elif node is Crate:
+		crates.erase(node)
+	elif node is Projectile:
+		projectiles.erase(node)
+
+func register_machine(m: Machine) -> void:
+	if not machines.has(m):
+		machines.append(m)
+
+func register_crate(c: Crate) -> void:
+	if not crates.has(c):
+		crates.append(c)
+
+func register_projectile(p: Projectile) -> void:
+	if not projectiles.has(p):
+		projectiles.append(p)
 
 func _physics_process(delta: float) -> void:
 	# 1. Sample manual player input via InputRouter (zero out if warp dialog is open)
@@ -204,6 +239,12 @@ func _step_movement(delta: float) -> void:
 	for m: Machine in machines:
 		if is_instance_valid(m):
 			m.step_movement(delta)
+	for c: Crate in crates:
+		if is_instance_valid(c):
+			c.step_movement(delta)
+	for p: Projectile in projectiles:
+		if is_instance_valid(p):
+			p.step(delta)
 
 func _step_world() -> void:
 	if player_machine == null or not is_instance_valid(player_machine):
@@ -223,10 +264,95 @@ func _step_cleanup() -> void:
 	for i: int in range(machines.size() - 1, -1, -1):
 		if not is_instance_valid(machines[i]):
 			machines.remove_at(i)
+	for i: int in range(crates.size() - 1, -1, -1):
+		if not is_instance_valid(crates[i]):
+			crates.remove_at(i)
+	for i: int in range(projectiles.size() - 1, -1, -1):
+		if not is_instance_valid(projectiles[i]):
+			projectiles.remove_at(i)
+
+func _clear_transient_projectiles() -> void:
+	for p: Projectile in projectiles:
+		if is_instance_valid(p):
+			p.queue_free()
+	projectiles.clear()
+
+func _clear_room_entities() -> void:
+	_clear_transient_projectiles()
+	if entities_container != null:
+		for child: Node in entities_container.get_children():
+			if child != player_machine and is_instance_valid(child):
+				entities_container.remove_child(child)
+				child.queue_free()
+	machines.clear()
+	if player_machine != null and is_instance_valid(player_machine):
+		machines.append(player_machine)
+	crates.clear()
+
+func _spawn_room_entities(room_data: Dictionary) -> void:
+	var entities: Array = room_data.get("entities", [])
+	for ent_variant: Variant in entities:
+		if not (ent_variant is Dictionary):
+			continue
+		var ent: Dictionary = ent_variant as Dictionary
+		var kind: String = str(ent.get("kind", ""))
+		var at: Array = ent.get("at", [0, 0])
+		var pos: Vector2 = Vector2(0, 0)
+		if at.size() >= 2:
+			pos = Vector2(float(at[0]) * 16.0 + 8.0, float(at[1]) * 16.0 + 8.0)
+
+		if kind == "crate":
+			var crate: Crate = Crate.new()
+			crate.position = pos
+			crate.weight = int(ent.get("weight", 1))
+			crate.size_class = str(ent.get("size", "m"))
+			entities_container.add_child(crate)
+			if not crates.has(crate):
+				crates.append(crate)
+		elif kind == "machine":
+			var machine_scene: PackedScene = load("res://scenes/machine.tscn")
+			if machine_scene != null:
+				var m: Machine = machine_scene.instantiate() as Machine
+				var model_id: String = str(ent.get("model", "janitor"))
+				m.position = pos
+				m.current_room = active_room
+
+				var state_str: String = str(ent.get("state", "dormant"))
+				if state_str == "dormant":
+					var null_ctrl: NullController = NullController.new()
+					null_ctrl.name = "Controller"
+					var old_ctrl: Node = m.get_node_or_null("Controller")
+					if old_ctrl != null:
+						m.remove_child(old_ctrl)
+						old_ctrl.queue_free()
+					m.add_child(null_ctrl)
+					m.controller = null_ctrl
+
+				entities_container.add_child(m)
+				if not machines.has(m):
+					machines.append(m)
+
+				var data_node: Node = get_node_or_null("/root/Data")
+				var b_dict: Dictionary = {}
+				if data_node != null and data_node.has_method("get_json"):
+					var raw: Variant = data_node.call("get_json", "res://data/bodies/%s.json" % model_id)
+					if raw is Dictionary:
+						b_dict = raw
+				elif FileAccess.file_exists("res://data/bodies/%s.json" % model_id):
+					var file: FileAccess = FileAccess.open("res://data/bodies/%s.json" % model_id, FileAccess.READ)
+					if file != null:
+						var json: JSON = JSON.new()
+						if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+							b_dict = json.data as Dictionary
+				if not b_dict.is_empty():
+					m.apply_body_data(b_dict)
+				else:
+					m.body_id = model_id
 
 func start_transition(next_room_id: String, dir: Vector2) -> void:
 	if is_transitioning:
 		return
+	_clear_transient_projectiles()
 
 	var room_path: String = WorldGrid.find_room_path(next_room_id)
 	if room_path == "":
@@ -300,6 +426,13 @@ func _finish_transition() -> void:
 		player_machine.position = machine_slide_target
 		player_machine.current_room = active_room
 
+	_clear_room_entities()
+	if active_room != null:
+		var room_path: String = WorldGrid.find_room_path(current_room_id)
+		if room_path != "":
+			var r_data: Dictionary = RoomLoader.load_room(room_path)
+			_spawn_room_entities(r_data)
+
 	is_transitioning = false
 	var game_node: Node = get_node_or_null("/root/Game")
 	if game_node != null:
@@ -339,7 +472,9 @@ func load_room(room_id: String) -> void:
 	active_room.setup(data)
 	active_room.position = Vector2.ZERO
 
+	_clear_room_entities()
 	_setup_player_machine(data)
+	_spawn_room_entities(data)
 	_update_hud()
 
 	var game_node: Node = get_node_or_null("/root/Game")
@@ -357,7 +492,24 @@ func _setup_player_machine(room_data: Dictionary) -> void:
 		var scene: PackedScene = load("res://scenes/machine.tscn")
 		player_machine = scene.instantiate() as Machine
 		entities_container.add_child(player_machine)
-		machines.append(player_machine)
+		if not machines.has(player_machine):
+			machines.append(player_machine)
+
+		# Apply cursor.json body data on initial instantiation (Bug 4 fix)
+		var data_node: Node = get_node_or_null("/root/Data")
+		var cursor_dict: Dictionary = {}
+		if data_node != null and data_node.has_method("get_json"):
+			var raw: Variant = data_node.call("get_json", "res://data/bodies/cursor.json")
+			if raw is Dictionary:
+				cursor_dict = raw
+		elif FileAccess.file_exists("res://data/bodies/cursor.json"):
+			var file: FileAccess = FileAccess.open("res://data/bodies/cursor.json", FileAccess.READ)
+			if file != null:
+				var json: JSON = JSON.new()
+				if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+					cursor_dict = json.data as Dictionary
+		if not cursor_dict.is_empty():
+			player_machine.apply_body_data(cursor_dict)
 
 	player_machine.current_room = active_room
 
