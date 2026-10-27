@@ -69,7 +69,7 @@ func _process(_delta: float) -> void:
 			var flash: bool = (state.invulnerability_ticks % 6) < 3
 			var base_col: Color = _get_default_color_for_body()
 			visual_rect.color = Color(base_col.r, base_col.g, base_col.b, 0.4 if flash else 1.0)
-		elif state.is_open():
+		elif is_open() and operational_state == "hostile":
 			var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.01)
 			var base_col: Color = _get_default_color_for_body()
 			visual_rect.color = base_col.lerp(Color.WHITE, 0.5 * pulse)

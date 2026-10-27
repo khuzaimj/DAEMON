@@ -49,6 +49,7 @@ func _ready() -> void:
 		hijack_fsm.node_exited.connect(_on_node_exited)
 		hijack_fsm.transit_blocked_by_firewall.connect(_on_transit_blocked_by_firewall)
 		hijack_fsm.reboot_triggered.connect(_on_reboot_triggered)
+		hijack_fsm.model_registered.connect(_on_model_registered)
 	if entities_container != null:
 		entities_container.child_entered_tree.connect(_on_entity_child_entered)
 		entities_container.child_exiting_tree.connect(_on_entity_child_exiting)
@@ -399,6 +400,11 @@ func _on_reboot_triggered(reason: String) -> void:
 		player_machine.position = dock_pos
 	hijack_fsm.refill_ttl()
 
+func _on_model_registered(model_id: String) -> void:
+	var events_node: Node = get_node_or_null("/root/Events")
+	if events_node != null:
+		events_node.emit_signal("log_found", "reg_%s" % model_id)
+
 func _get_hijack_candidates(origin_pos: Vector2) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
 	for m: Machine in machines:
@@ -593,6 +599,11 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 			entities_container.add_child(crate)
 			if not crates.has(crate):
 				crates.append(crate)
+		elif kind == "dock":
+			var dock: Dock = Dock.new()
+			dock.entity_id = str(ent.get("id", "dock_01"))
+			dock.position = pos
+			entities_container.add_child(dock)
 		elif kind == "machine":
 			var machine_scene: PackedScene = load("res://scenes/machine.tscn")
 			if machine_scene != null:
