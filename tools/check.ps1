@@ -29,8 +29,11 @@ function Run-Step {
         [scriptblock]$Action
     )
     Write-Host "[check] $Name ..." -ForegroundColor Cyan
+    $prevEAP = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     $output = & $Action 2>&1
     $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $prevEAP
 
     foreach ($line in $output) {
         $lineStr = $line.ToString()

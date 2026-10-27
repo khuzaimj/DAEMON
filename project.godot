@@ -16,6 +16,12 @@ config/features=PackedStringArray("4.7", "GL Compatibility")
 config/use_custom_user_dir=true
 config/custom_user_dir_name="Daemon"
 
+[autoload]
+
+Events="*res://src/autoload/events.gd"
+Data="*res://src/autoload/data.gd"
+Game="*res://src/autoload/game.gd"
+
 [display]
 
 window/size/viewport_width=480
