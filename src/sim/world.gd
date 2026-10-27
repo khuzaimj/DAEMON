@@ -21,6 +21,7 @@ var player_machine: Machine = null
 var machines: Array[Machine] = []
 var crates: Array[Crate] = []
 var projectiles: Array[Projectile] = []
+var room_links: Array[Dictionary] = []
 
 var hijack_fsm: HijackFSM = HijackFSM.new()
 
@@ -317,6 +318,20 @@ func _step_hijack(delta: float) -> void:
 		hijack_fsm.step_transit(delta, firewall_hit)
 		return
 
+	# Node pilot stepping
+	if hijack_fsm.state == HijackFSM.State.NODE_PILOT:
+		if player_machine != null and is_instance_valid(player_machine):
+			if player_machine.current_intent.primary or player_machine.current_intent.interact:
+				var node_ent: Node = _find_entity_by_id(hijack_fsm.current_node_id)
+				if node_ent != null and node_ent is InfraNode:
+					(node_ent as InfraNode).operate_node()
+			if player_machine.current_intent.hop or player_machine.current_intent.eject:
+				var node_ent: Node = _find_entity_by_id(hijack_fsm.current_node_id)
+				var pos: Vector2 = (node_ent as Node2D).position if node_ent is Node2D else player_machine.position
+				hijack_fsm.voluntary_eject(pos)
+				return
+		return
+
 	# Cursor TTL stepping and crash check
 	if hijack_fsm.state == HijackFSM.State.CURSOR:
 		if player_machine != null and player_machine.state != null and player_machine.state.is_crashed:
@@ -375,11 +390,15 @@ func _on_host_ejected(_from_id: String, _reason: String) -> void:
 func _on_transit_blocked_by_firewall(block_pos: Vector2) -> void:
 	_spawn_player_cursor_at(block_pos)
 
-func _on_node_seized(_node_id: String) -> void:
-	pass
+func _on_node_seized(node_id: String) -> void:
+	var ent: Node = _find_entity_by_id(node_id)
+	if ent != null and ent is InfraNode:
+		(ent as InfraNode).on_seized(self)
 
-func _on_node_exited(_node_id: String) -> void:
-	pass
+func _on_node_exited(node_id: String) -> void:
+	var ent: Node = _find_entity_by_id(node_id)
+	if ent != null and ent is InfraNode:
+		(ent as InfraNode).on_exited()
 
 func _on_reboot_triggered(reason: String) -> void:
 	var events_node: Node = get_node_or_null("/root/Events")
@@ -581,6 +600,24 @@ func _get_hijack_candidates(origin_pos: Vector2) -> Array[Dictionary]:
 			"is_boss_body": m.is_boss_body,
 			"has_los": has_los
 		})
+
+	if is_inside_tree():
+		for node_ent: Node in get_tree().get_nodes_in_group("infrastructure_nodes"):
+			if node_ent is InfraNode and is_instance_valid(node_ent):
+				var n: InfraNode = node_ent as InfraNode
+				var has_los: bool = check_line_of_sight(origin_pos, n.position)
+				candidates.append({
+					"id": n.entity_id,
+					"kind": "node",
+					"model": "node",
+					"state": "dormant",
+					"is_open": true,
+					"pos": n.position,
+					"clearance": n.clearance_level,
+					"is_immune_unit": false,
+					"is_boss_body": false,
+					"has_los": has_los
+				})
 	return candidates
 
 func check_line_of_sight(from_pos: Vector2, to_pos: Vector2) -> bool:
@@ -635,6 +672,31 @@ func _find_machine_by_id(id: String) -> Machine:
 		if is_instance_valid(m) and m.entity_id == id:
 			return m
 	return null
+
+func _find_entity_by_id(id: String) -> Node:
+	for m: Machine in machines:
+		if is_instance_valid(m) and m.entity_id == id:
+			return m
+	if entities_container != null:
+		for child: Node in entities_container.get_children():
+			if child.get("entity_id") == id:
+				return child
+	return null
+
+func trigger_links(from_id: String, active: bool) -> void:
+	for link: Dictionary in room_links:
+		if str(link.get("from", "")) == from_id:
+			var target_id: String = str(link.get("to", ""))
+			var target_ent: Node = _find_entity_by_id(target_id)
+			if target_ent != null:
+				if target_ent is Door:
+					(target_ent as Door).set_open(active)
+				elif target_ent is Firewall:
+					(target_ent as Firewall).set_active(not active)
+				elif target_ent.has_method("set_active"):
+					target_ent.call("set_active", not active)
+				elif target_ent.has_method("set_open"):
+					target_ent.call("set_open", active)
 
 func _spawn_player_cursor_at(pos: Vector2) -> Machine:
 	var scene: PackedScene = load("res://scenes/machine.tscn")
@@ -737,6 +799,13 @@ func _clear_room_entities() -> void:
 	crates.clear()
 
 func _spawn_room_entities(room_data: Dictionary) -> void:
+	room_links.clear()
+	var links_val: Variant = room_data.get("links", [])
+	if links_val is Array:
+		for l: Variant in links_val:
+			if l is Dictionary:
+				room_links.append((l as Dictionary).duplicate())
+
 	var entities: Array = room_data.get("entities", [])
 	for ent_variant: Variant in entities:
 		if not (ent_variant is Dictionary):
@@ -761,6 +830,31 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 			dock.entity_id = str(ent.get("id", "dock_01"))
 			dock.position = pos
 			entities_container.add_child(dock)
+		elif kind == "door":
+			var door: Door = Door.new()
+			door.entity_id = str(ent.get("id", "door_01"))
+			door.position = pos
+			door.is_open = bool(ent.get("is_open", false))
+			entities_container.add_child(door)
+		elif kind == "plate":
+			var plate: Plate = Plate.new()
+			plate.entity_id = str(ent.get("id", "plate_01"))
+			plate.position = pos
+			plate.weight_threshold = int(ent.get("weight_threshold", 1))
+			plate.is_latched = bool(ent.get("is_latched", false))
+			entities_container.add_child(plate)
+		elif kind == "firewall":
+			var fw: Firewall = Firewall.new()
+			fw.entity_id = str(ent.get("id", "firewall_01"))
+			fw.position = pos
+			fw.is_active = bool(ent.get("is_active", true))
+			entities_container.add_child(fw)
+		elif kind == "node":
+			var inode: InfraNode = InfraNode.new()
+			inode.entity_id = str(ent.get("id", "node_01"))
+			inode.position = pos
+			inode.clearance_level = int(ent.get("clearance", 0))
+			entities_container.add_child(inode)
 		elif kind == "machine":
 			var machine_scene: PackedScene = load("res://scenes/machine.tscn")
 			if machine_scene != null:
