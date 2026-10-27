@@ -1,6 +1,7 @@
 {
   "id": "debug_01",
   "zone": "debug",
+  "pause_ttl_until_hijack": true,
   "cell": [0, 0],
   "exits": { "e": "debug_02" },
   "grid": [

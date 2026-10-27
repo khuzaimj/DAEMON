@@ -22,6 +22,8 @@ var machines: Array[Machine] = []
 var crates: Array[Crate] = []
 var projectiles: Array[Projectile] = []
 
+var hijack_fsm: HijackFSM = HijackFSM.new()
+
 # Debug tooling state
 var sim_duration_ms: float = 0.0
 var show_debug_collisions: bool = false
@@ -38,6 +40,15 @@ var recorded_input_stream: Array[Dictionary] = []
 @onready var warp_input: LineEdit = $WarpDialog/LineEdit
 
 func _ready() -> void:
+	if hijack_fsm != null:
+		hijack_fsm.state_changed.connect(_on_hijack_state_changed)
+		hijack_fsm.host_parked.connect(_on_host_parked)
+		hijack_fsm.host_seized.connect(_on_host_seized)
+		hijack_fsm.ejected.connect(_on_host_ejected)
+		hijack_fsm.node_seized.connect(_on_node_seized)
+		hijack_fsm.node_exited.connect(_on_node_exited)
+		hijack_fsm.transit_blocked_by_firewall.connect(_on_transit_blocked_by_firewall)
+		hijack_fsm.reboot_triggered.connect(_on_reboot_triggered)
 	if entities_container != null:
 		entities_container.child_entered_tree.connect(_on_entity_child_entered)
 		entities_container.child_exiting_tree.connect(_on_entity_child_exiting)
@@ -45,6 +56,24 @@ func _ready() -> void:
 		load_room(current_room_id)
 	if warp_input != null:
 		warp_input.text_submitted.connect(_on_warp_submitted)
+
+func _exit_tree() -> void:
+	Engine.time_scale = 1.0
+	if hijack_fsm != null and hijack_fsm.state == HijackFSM.State.TARGETING:
+		hijack_fsm.cancel_targeting()
+
+func handle_back_input() -> bool:
+	if warp_dialog != null and warp_dialog.visible:
+		warp_dialog.visible = false
+		return true
+	if hijack_fsm != null and hijack_fsm.state == HijackFSM.State.TARGETING:
+		hijack_fsm.cancel_targeting()
+		return true
+	if hijack_fsm != null and hijack_fsm.state == HijackFSM.State.NODE_PILOT:
+		var pos: Vector2 = player_machine.position if player_machine != null else Vector2.ZERO
+		hijack_fsm.voluntary_eject(pos)
+		return true
+	return false
 
 func _on_entity_child_entered(node: Node) -> void:
 	if node is Crate:
@@ -105,6 +134,7 @@ func _physics_process(delta: float) -> void:
 	# System 2: controllers
 	_step_controllers(tick_count)
 	# System 3: hijack (P3)
+	_step_hijack(delta)
 	# System 4: abilities
 	_step_abilities(tick_count)
 	# System 5: movement
@@ -229,6 +259,232 @@ func _step_controllers(tick: int) -> void:
 	for m: Machine in machines:
 		if is_instance_valid(m):
 			m.step_controller(tick)
+	if hijack_fsm != null and (hijack_fsm.state == HijackFSM.State.TARGETING or hijack_fsm.state == HijackFSM.State.TRANSIT):
+		if player_machine != null and is_instance_valid(player_machine):
+			player_machine.current_intent.move = Vector2.ZERO
+
+func _step_hijack(delta: float) -> void:
+	if player_machine == null or not is_instance_valid(player_machine):
+		return
+
+	# Handle routine cycling and pin dropping from player intent
+	if player_machine.current_intent.routine_cycle:
+		hijack_fsm.cycle_routine()
+	if player_machine.current_intent.pin:
+		hijack_fsm.drop_pin(player_machine.position, player_machine.facing)
+
+	# Forced ejection check if currently hosted
+	if hijack_fsm.state == HijackFSM.State.HOSTED:
+		if player_machine.state != null:
+			if player_machine.state.is_crashed:
+				hijack_fsm.force_eject(player_machine.position, "crashed")
+				return
+			elif player_machine.state.is_overheated:
+				hijack_fsm.force_eject(player_machine.position, "overheated")
+				return
+
+	# Voluntary ejection check
+	if player_machine.current_intent.eject:
+		if hijack_fsm.state == HijackFSM.State.HOSTED or hijack_fsm.state == HijackFSM.State.NODE_PILOT:
+			hijack_fsm.voluntary_eject(player_machine.position, player_machine.facing)
+			return
+
+	# Start targeting check
+	if player_machine.current_intent.hop and hijack_fsm.state != HijackFSM.State.TARGETING and hijack_fsm.state != HijackFSM.State.TRANSIT:
+		var candidates: Array[Dictionary] = _get_hijack_candidates(player_machine.position)
+		var aim_vec: Vector2 = player_machine.current_intent.aim
+		if aim_vec == Vector2.ZERO:
+			aim_vec = player_machine.facing
+		hijack_fsm.start_targeting(player_machine.position, candidates, aim_vec)
+		return
+
+	# Targeting stepping
+	if hijack_fsm.state == HijackFSM.State.TARGETING:
+		var aim_vec: Vector2 = player_machine.current_intent.aim
+		if aim_vec == Vector2.ZERO:
+			aim_vec = player_machine.current_intent.move
+		var confirm_pressed: bool = player_machine.current_intent.hop or player_machine.current_intent.primary
+		var cancel_pressed: bool = player_machine.current_intent.secondary or Input.is_action_just_pressed("back")
+		hijack_fsm.step_targeting_tick(aim_vec, confirm_pressed, cancel_pressed, player_machine.position, player_machine.facing)
+		return
+
+	# Transit stepping
+	if hijack_fsm.state == HijackFSM.State.TRANSIT:
+		var step_dist: float = HijackFSM.TRANSIT_SPEED_PX * delta
+		var next_pos: Vector2 = hijack_fsm.spark_pos.move_toward(hijack_fsm.transit_target_pos, step_dist)
+		var firewall_hit: Variant = check_transit_firewall(hijack_fsm.spark_pos, next_pos)
+		hijack_fsm.step_transit(delta, firewall_hit)
+		return
+
+	# Cursor TTL stepping
+	if hijack_fsm.state == HijackFSM.State.CURSOR:
+		var is_safe: bool = is_pos_in_safe_zone(player_machine.position)
+		hijack_fsm.step_cursor_ttl(is_safe, 1)
+
+func _on_hijack_state_changed(old_state: int, new_state: int) -> void:
+	if new_state == HijackFSM.State.TARGETING:
+		Engine.time_scale = HijackFSM.TARGETING_TIME_SCALE
+	elif old_state == HijackFSM.State.TARGETING:
+		Engine.time_scale = 1.0
+
+func _on_host_parked(host_id: String, routine: String, pin_pos: Vector2) -> void:
+	var host: Machine = _find_machine_by_id(host_id)
+	if host != null:
+		host.operational_state = "parked"
+		host.parked_routine = routine
+		host.pin_position = pin_pos
+		var null_ctrl: NullController = NullController.new()
+		null_ctrl.name = "Controller"
+		var old_ctrl: Node = host.get_node_or_null("Controller")
+		if old_ctrl != null:
+			host.remove_child(old_ctrl)
+			old_ctrl.queue_free()
+		host.add_child(null_ctrl)
+		host.controller = null_ctrl
+
+func _on_host_seized(host_id: String, _model_id: String) -> void:
+	var target: Machine = _find_machine_by_id(host_id)
+	if target != null:
+		if player_machine != null and player_machine != target:
+			if player_machine.body_id == "cursor":
+				var old_cursor: Machine = player_machine
+				machines.erase(old_cursor)
+				if is_instance_valid(old_cursor):
+					old_cursor.queue_free()
+		player_machine = target
+		target.operational_state = "player"
+		var p_ctrl: PlayerController = PlayerController.new()
+		p_ctrl.name = "Controller"
+		var old_ctrl: Node = target.get_node_or_null("Controller")
+		if old_ctrl != null:
+			target.remove_child(old_ctrl)
+			old_ctrl.queue_free()
+		target.add_child(p_ctrl)
+		target.controller = p_ctrl
+		_update_hud()
+
+func _on_host_ejected(_from_id: String, _reason: String) -> void:
+	_spawn_player_cursor_at(hijack_fsm.spark_pos)
+
+func _on_transit_blocked_by_firewall(block_pos: Vector2) -> void:
+	_spawn_player_cursor_at(block_pos)
+
+func _on_node_seized(_node_id: String) -> void:
+	pass
+
+func _on_node_exited(_node_id: String) -> void:
+	pass
+
+func _on_reboot_triggered(_reason: String) -> void:
+	load_room(current_room_id)
+
+func _get_hijack_candidates(origin_pos: Vector2) -> Array[Dictionary]:
+	var candidates: Array[Dictionary] = []
+	for m: Machine in machines:
+		if not is_instance_valid(m) or m == player_machine:
+			continue
+		var cand_pos: Vector2 = m.position
+		var has_los: bool = check_line_of_sight(origin_pos, cand_pos)
+		candidates.append({
+			"id": m.entity_id,
+			"kind": "machine",
+			"model": m.body_id,
+			"state": m.operational_state,
+			"is_open": m.is_open(),
+			"pos": cand_pos,
+			"clearance": m.clearance_level,
+			"is_immune_unit": m.is_immune_unit,
+			"is_boss_body": m.is_boss_body,
+			"has_los": has_los
+		})
+	return candidates
+
+func check_line_of_sight(from_pos: Vector2, to_pos: Vector2) -> bool:
+	if not is_inside_tree() or get_world_2d() == null:
+		return true
+	var space_state: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	if space_state == null:
+		return true
+	var mask: int = (1 << 0) | (1 << 7) # Layer 1 (solid) | Layer 8 (firewall)
+	var query: PhysicsRayQueryParameters2D = PhysicsRayQueryParameters2D.create(from_pos, to_pos, mask)
+	var exclude: Array[RID] = []
+	if player_machine != null and is_instance_valid(player_machine):
+		exclude.append(player_machine.get_rid())
+	for m: Machine in machines:
+		if is_instance_valid(m):
+			exclude.append(m.get_rid())
+	query.exclude = exclude
+	var hit: Dictionary = space_state.intersect_ray(query)
+	return hit.is_empty()
+
+func check_transit_firewall(from_pos: Vector2, to_pos: Vector2) -> Variant:
+	if not is_inside_tree() or get_world_2d() == null:
+		return null
+	var space_state: PhysicsDirectSpaceState2D = get_world_2d().direct_space_state
+	if space_state == null:
+		return null
+	var mask: int = (1 << 7) # Layer 8 (firewall)
+	var query: PhysicsRayQueryParameters2D = PhysicsRayQueryParameters2D.create(from_pos, to_pos, mask)
+	var hit: Dictionary = space_state.intersect_ray(query)
+	if not hit.is_empty():
+		return hit.get("position", to_pos)
+	return null
+
+func is_pos_in_safe_zone(pixel_pos: Vector2) -> bool:
+	if active_room != null:
+		var cell: Vector2i = Grid.pixel_to_tile(pixel_pos)
+		if Grid.is_in_room_bounds(cell) and cell.y < active_room.grid.size() and cell.x < active_room.grid[cell.y].length():
+			var glyph: String = active_room.grid[cell.y][cell.x]
+			if glyph == ":":
+				return true
+	return false
+
+func _find_machine_by_id(id: String) -> Machine:
+	for m: Machine in machines:
+		if is_instance_valid(m) and m.entity_id == id:
+			return m
+	return null
+
+func _spawn_player_cursor_at(pos: Vector2) -> Machine:
+	var scene: PackedScene = load("res://scenes/machine.tscn")
+	if scene == null:
+		return null
+	var cursor_m: Machine = scene.instantiate() as Machine
+	cursor_m.name = "PlayerCursor"
+	cursor_m.entity_id = "player"
+	cursor_m.position = pos
+	cursor_m.current_room = active_room
+	cursor_m.operational_state = "player"
+	entities_container.add_child(cursor_m)
+	register_machine(cursor_m)
+
+	var data_node: Node = get_node_or_null("/root/Data")
+	var cursor_dict: Dictionary = {}
+	if data_node != null and data_node.has_method("get_json"):
+		var raw: Variant = data_node.call("get_json", "res://data/bodies/cursor.json")
+		if raw is Dictionary:
+			cursor_dict = raw
+	elif FileAccess.file_exists("res://data/bodies/cursor.json"):
+		var file: FileAccess = FileAccess.open("res://data/bodies/cursor.json", FileAccess.READ)
+		if file != null:
+			var json: JSON = JSON.new()
+			if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+				cursor_dict = json.data as Dictionary
+	if not cursor_dict.is_empty():
+		cursor_m.apply_body_data(cursor_dict)
+
+	var p_ctrl: PlayerController = PlayerController.new()
+	p_ctrl.name = "Controller"
+	var old_ctrl: Node = cursor_m.get_node_or_null("Controller")
+	if old_ctrl != null:
+		cursor_m.remove_child(old_ctrl)
+		old_ctrl.queue_free()
+	cursor_m.add_child(p_ctrl)
+	cursor_m.controller = p_ctrl
+
+	player_machine = cursor_m
+	_update_hud()
+	return cursor_m
 
 func _step_abilities(tick: int) -> void:
 	for m: Machine in machines:
@@ -317,7 +573,20 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 				m.position = pos
 				m.current_room = active_room
 
+				var ent_id: String = str(ent.get("id", ""))
+				if ent_id != "":
+					m.entity_id = ent_id
+				else:
+					m.entity_id = "%s_%d" % [model_id, machines.size()]
 				var state_str: String = str(ent.get("state", "dormant"))
+				m.operational_state = state_str
+				if ent.has("clearance"):
+					m.clearance_level = int(ent["clearance"])
+				if ent.has("is_immune_unit"):
+					m.is_immune_unit = bool(ent["is_immune_unit"])
+				if ent.has("is_boss_body"):
+					m.is_boss_body = bool(ent["is_boss_body"])
+
 				if state_str == "dormant":
 					var null_ctrl: NullController = NullController.new()
 					null_ctrl.name = "Controller"
@@ -447,6 +716,7 @@ func _finish_transition() -> void:
 	room_entered.emit(current_room_id)
 
 func load_room(room_id: String) -> void:
+	Engine.time_scale = 1.0
 	current_room_id = room_id
 	var room_path: String = WorldGrid.find_room_path(room_id)
 	if room_path == "":
@@ -475,6 +745,8 @@ func load_room(room_id: String) -> void:
 	_clear_room_entities()
 	_setup_player_machine(data)
 	_spawn_room_entities(data)
+	var pause_ttl: bool = bool(data.get("pause_ttl_until_hijack", false))
+	hijack_fsm.reset_for_room(pause_ttl)
 	_update_hud()
 
 	var game_node: Node = get_node_or_null("/root/Game")
@@ -512,6 +784,14 @@ func _setup_player_machine(room_data: Dictionary) -> void:
 			player_machine.apply_body_data(cursor_dict)
 
 	player_machine.current_room = active_room
+	player_machine.entity_id = "player"
+	player_machine.operational_state = "player"
+	if player_machine.body_id == "cursor":
+		hijack_fsm.state = HijackFSM.State.CURSOR
+		hijack_fsm.current_host_id = ""
+	else:
+		hijack_fsm.state = HijackFSM.State.HOSTED
+		hijack_fsm.current_host_id = "player"
 
 	# Find spawn position from entities
 	var spawn_pos: Vector2 = Vector2(56.0, 120.0)
@@ -539,11 +819,25 @@ func _update_hud() -> void:
 		if player_machine.state != null:
 			hp_str = "%02d/%02d" % [player_machine.state.current_integrity, player_machine.state.max_integrity]
 			heat_str = "%03d/%03d" % [int(round(player_machine.state.current_heat)), int(round(player_machine.state.max_heat))]
+	var fsm_state_str: String = "CURSOR"
+	if hijack_fsm != null:
+		match hijack_fsm.state:
+			HijackFSM.State.CURSOR:
+				var ttl_sec: int = int(ceil(float(hijack_fsm.ttl_ticks) / 60.0))
+				fsm_state_str = "CURSOR [TTL %02ds]" % ttl_sec
+			HijackFSM.State.HOSTED:
+				fsm_state_str = "HOSTED [%s]" % hijack_fsm.selected_routine.to_upper()
+			HijackFSM.State.TARGETING:
+				fsm_state_str = "AIMING"
+			HijackFSM.State.TRANSIT:
+				fsm_state_str = "TRANSIT"
+			HijackFSM.State.NODE_PILOT:
+				fsm_state_str = "NODE"
 	var rec_str: String = ""
 	if is_recording_input:
 		rec_str = " | REC: ON"
-	hud_label.text = "TICK: %06d | ROOM: %s | BODY: %s | HP: %s | HEAT: %s | SIZE: %s%s" % [
-		tick_count, current_room_id, body_name, hp_str, heat_str, size_str, rec_str
+	hud_label.text = "TICK: %06d | ROOM: %s | %s | BODY: %s | HP: %s | HEAT: %s | SIZE: %s%s" % [
+		tick_count, current_room_id, fsm_state_str, body_name, hp_str, heat_str, size_str, rec_str
 	]
 
 func _update_perf_overlay() -> void:

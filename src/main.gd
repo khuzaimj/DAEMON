@@ -35,4 +35,6 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		var key_event: InputEventKey = event as InputEventKey
 		if key_event.pressed and key_event.keycode == KEY_ESCAPE:
+			if world != null and world.handle_back_input():
+				return
 			get_tree().quit(0)

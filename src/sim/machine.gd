@@ -9,6 +9,14 @@ extends CharacterBody2D
 @export var primary_ability: String = "ping"
 @export var secondary_ability: String = ""
 
+@export var entity_id: String = ""
+var operational_state: String = "dormant" # "player", "dormant", "hostile", "parked"
+var clearance_level: int = 0
+var is_immune_unit: bool = false
+var is_boss_body: bool = false
+var parked_routine: String = "hold"
+var pin_position: Vector2 = Vector2.ZERO
+
 var current_room: RoomRuntime = null
 var controller: Controller = null
 var current_intent: Intent = Intent.new()
@@ -37,6 +45,8 @@ var knockback_velocity: Vector2 = Vector2.ZERO
 @onready var visual_rect: ColorRect = $PlaceholderVisual
 
 func _ready() -> void:
+	if entity_id.is_empty():
+		entity_id = name
 	if controller == null:
 		controller = get_node_or_null("Controller") as Controller
 	if abilities == null:
@@ -167,9 +177,22 @@ func apply_body_data(data: Dictionary) -> void:
 			passives.append(str(p))
 			
 	state.setup_from_dict(data)
+	if data.has("clearance"):
+		clearance_level = int(data["clearance"])
+	if data.has("is_immune"):
+		is_immune_unit = bool(data["is_immune"])
+	if data.has("is_boss"):
+		is_boss_body = bool(data["is_boss"])
 	_apply_size_class()
 	if abilities != null:
 		abilities.setup(self, primary_ability, secondary_ability)
+
+func is_open() -> bool:
+	if operational_state == "dormant" or operational_state == "parked":
+		return true
+	if state != null:
+		return state.is_open()
+	return false
 
 func take_damage(amount: int, damage_type: String = "kinetic", ignore_invuln: bool = false) -> bool:
 	if damage_type == "thermal" and (passives.has("fire_immune") or body_id == "welder"):
