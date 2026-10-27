@@ -1,0 +1,14 @@
+{
+  "tiles": {
+    "#": { "name": "wall",    "solid": true },
+    ".": { "name": "floor" },
+    ",": { "name": "grime",   "clear_by": "sweep" },
+    "~": { "name": "coolant", "medium": "liquid" },
+    "o": { "name": "pit",     "medium": "void" },
+    "^": { "name": "spikes",  "hazard": "spikes" },
+    ":": { "name": "conduit", "fits": "xs" },
+    "X": { "name": "cracked", "solid": true, "break_by": "ram" },
+    "%": { "name": "weld",    "solid": true, "break_by": "torch" },
+    "}": { "name": "belt_e",  "push": [1, 0] }
+  }
+}
