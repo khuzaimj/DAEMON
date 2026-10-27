@@ -112,7 +112,8 @@
 2. **F8 Body Cycling:** Cycle player machine through all 10 bodies in exact §1.3 table order? — *Approved: Yes.*
 
 # P02 — Machines, Bodies, Abilities · Report
-Done: P2.1, P2.2, P2.3, P2.4a, P2.4b, P2.4c, P2.4d, P2.4e, P2.5, Audit Fixes (6 items) · Commits: 9 · Tests: 45 passing (364 asserts) · check.ps1 -Full: green
+Status: accepted (2026-10-28)
+Done: P2.1, P2.2, P2.3, P2.4a, P2.4b, P2.4c, P2.4d, P2.4e, P2.5, Audit Fixes (6 items) · Commits: 10 (commit 06f3864) · Tests: 45 passing (364 asserts) · check.ps1 -Full: green
 Evidence:
 - `tools/validate_data.gd`: 41 JSON files verified (10 bodies, 19 abilities, enemies, AI, sizes, tiles, zones), 6 rooms verified with Validator v1 (0 errors).
 - `tests/`: 18 test scripts, 45 tests, 364 assertions, 0 failures, 0 orphans.

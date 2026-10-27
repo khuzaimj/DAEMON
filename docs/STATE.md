@@ -1,6 +1,6 @@
-Phase: P02 Machines, bodies, abilities (approved 2026-10-27)   Status: awaiting accept
-Last task: P2.5 Audit Fixes (6 items) & Regenerated Audit Bundle (commit 332930a)
-Next task: Phase 2 Report & Acceptance
+Phase: P03 Hijack, Park, Garage   Status: briefed
+Last task: P02 accepted (commit 06f3864, 45 tests / 364 asserts)
+Next task: P3.1 Hijack FSM & Ray Queries (Argon authored)
 Open questions: None
 Run it: & build/Daemon.exe
 Known issues: None
