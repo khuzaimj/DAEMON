@@ -337,14 +337,15 @@ func _on_host_parked(host_id: String, routine: String, pin_pos: Vector2) -> void
 		host.operational_state = "parked"
 		host.parked_routine = routine
 		host.pin_position = pin_pos
-		var null_ctrl: NullController = NullController.new()
-		null_ctrl.name = "Controller"
+		var p_state: ParkedState = ParkedState.new(routine, host.position, pin_pos, host.facing)
+		var r_ctrl: RoutineController = RoutineController.new(p_state)
+		r_ctrl.name = "Controller"
 		var old_ctrl: Node = host.get_node_or_null("Controller")
 		if old_ctrl != null:
 			host.remove_child(old_ctrl)
 			old_ctrl.queue_free()
-		host.add_child(null_ctrl)
-		host.controller = null_ctrl
+		host.add_child(r_ctrl)
+		host.controller = r_ctrl
 
 func _on_host_seized(host_id: String, _model_id: String) -> void:
 	var target: Machine = _find_machine_by_id(host_id)
