@@ -111,6 +111,12 @@ func _execute_ability(slot_name: String, slot: Dictionary, data: Dictionary, dir
 			MovementAbilities.start_dash(machine, data, dir)
 		"cling":
 			MovementAbilities.start_cling(machine, data, dir)
+		"melee_arc":
+			MeleeAbilities.start_melee_arc(machine, data, dir)
+		"claw":
+			MeleeAbilities.start_claw(machine, data, dir)
+		"suction":
+			MeleeAbilities.start_suction(machine, data, dir)
 	
 	ability_triggered.emit(slot_name, str(slot["id"]), kind, dir)
 

@@ -12,6 +12,9 @@ const HUD_HEIGHT: int = 30
 static func tile_to_pixel(cell: Vector2i) -> Vector2:
 	return Vector2(cell.x * TILE_SIZE + HALF_TILE, cell.y * TILE_SIZE + HALF_TILE)
 
+static func tile_to_pixel_center(cell: Vector2i) -> Vector2:
+	return tile_to_pixel(cell)
+
 static func pixel_to_tile(pixel: Vector2) -> Vector2i:
 	return Vector2i(int(floor(pixel.x / TILE_SIZE)), int(floor(pixel.y / TILE_SIZE)))
 

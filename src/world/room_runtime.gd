@@ -53,7 +53,7 @@ func _build_visual_tilemap() -> void:
 	var tile_set: TileSet = TileSet.new()
 	tile_set.tile_size = Vector2i(Grid.TILE_SIZE, Grid.TILE_SIZE)
 
-	var glyph_order: Array[String] = [".", "#", ":", "o", "~", "^", ","]
+	var glyph_order: Array[String] = [".", "#", ":", "o", "~", "^", ",", "X", "%"]
 	var colors: Array[Color] = [
 		Color(0.12, 0.10, 0.08), # . floor
 		Color(0.30, 0.25, 0.20), # # wall
@@ -61,7 +61,9 @@ func _build_visual_tilemap() -> void:
 		Color(0.04, 0.04, 0.04), # o pit
 		Color(0.10, 0.35, 0.40), # ~ coolant
 		Color(0.50, 0.20, 0.20), # ^ spikes
-		Color(0.20, 0.22, 0.15)  # , grime
+		Color(0.20, 0.22, 0.15), # , grime
+		Color(0.40, 0.35, 0.30), # X cracked wall
+		Color(0.55, 0.40, 0.15)  # % weld barrier
 	]
 
 	var img: Image = Image.create(Grid.TILE_SIZE * glyph_order.size(), Grid.TILE_SIZE, false, Image.FORMAT_RGBA8)
@@ -179,3 +181,62 @@ func get_exit_at(pixel_pos: Vector2) -> String:
 	elif cell.y >= Grid.ROOM_TILES_HEIGHT - 1 and exits.has("s"):
 		return exits["s"]
 	return ""
+
+func set_tile_at(cell: Vector2i, new_glyph: String, rebuild_collision: bool = true) -> void:
+	if not Grid.is_in_room_bounds(cell):
+		return
+	if cell.y >= grid.size() or cell.x >= grid[cell.y].length():
+		return
+	var row: String = grid[cell.y]
+	grid[cell.y] = row.substr(0, cell.x) + new_glyph + row.substr(cell.x + 1)
+	
+	if _tilemap_layer != null:
+		var glyph_order: Array[String] = [".", "#", ":", "o", "~", "^", ",", "X", "%"]
+		var idx: int = glyph_order.find(new_glyph)
+		if idx == -1:
+			idx = 0
+		_tilemap_layer.set_cell(cell, 0, Vector2i(idx, 0))
+		
+	if rebuild_collision:
+		_build_collision()
+
+func clear_tiles_in_arc(origin: Vector2, facing: Vector2, arc_deg: float, radius: float, verb: String) -> int:
+	var cleared_count: int = 0
+	var min_cell: Vector2i = Grid.pixel_to_tile(origin - Vector2(radius, radius))
+	var max_cell: Vector2i = Grid.pixel_to_tile(origin + Vector2(radius, radius))
+	
+	var min_x: int = clampi(min_cell.x, 0, Grid.ROOM_TILES_WIDTH - 1)
+	var max_x: int = clampi(max_cell.x, 0, Grid.ROOM_TILES_WIDTH - 1)
+	var min_y: int = clampi(min_cell.y, 0, Grid.ROOM_TILES_HEIGHT - 1)
+	var max_y: int = clampi(max_cell.y, 0, Grid.ROOM_TILES_HEIGHT - 1)
+	
+	var modified: bool = false
+	for cy: int in range(min_y, max_y + 1):
+		for cx: int in range(min_x, max_x + 1):
+			var cell_pos: Vector2 = Grid.tile_to_pixel_center(Vector2i(cx, cy))
+			if AbilityMath.is_point_in_arc(origin, facing, cell_pos, arc_deg, radius):
+				var cell: Vector2i = Vector2i(cx, cy)
+				var glyph: String = grid[cy][cx]
+				var def: Dictionary = _tiles_def.get(glyph, {})
+				var clear_by: String = str(def.get("clear_by", ""))
+				if clear_by == verb:
+					set_tile_at(cell, ".", false)
+					cleared_count += 1
+					modified = true
+	if modified:
+		_build_collision()
+	return cleared_count
+
+func break_tile_at(pixel_pos: Vector2, verb: String) -> bool:
+	var cell: Vector2i = Grid.pixel_to_tile(pixel_pos)
+	if not Grid.is_in_room_bounds(cell):
+		return false
+	if cell.y >= grid.size() or cell.x >= grid[cell.y].length():
+		return false
+	var glyph: String = grid[cell.y][cell.x]
+	var def: Dictionary = _tiles_def.get(glyph, {})
+	var break_by: String = str(def.get("break_by", ""))
+	if break_by == verb:
+		set_tile_at(cell, ".", true)
+		return true
+	return false
