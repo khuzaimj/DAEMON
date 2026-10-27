@@ -1,0 +1,52 @@
+{
+  "actions": {
+    "move_up": {
+      "keys": ["W", "Up"],
+      "joy_buttons": [11],
+      "joy_axis": { "axis": 1, "value": -1.0 }
+    },
+    "move_down": {
+      "keys": ["S", "Down"],
+      "joy_buttons": [12],
+      "joy_axis": { "axis": 1, "value": 1.0 }
+    },
+    "move_left": {
+      "keys": ["A", "Left"],
+      "joy_buttons": [13],
+      "joy_axis": { "axis": 0, "value": -1.0 }
+    },
+    "move_right": {
+      "keys": ["D", "Right"],
+      "joy_buttons": [14],
+      "joy_axis": { "axis": 0, "value": 1.0 }
+    },
+    "primary": {
+      "keys": ["J"],
+      "joy_buttons": [2]
+    },
+    "secondary": {
+      "keys": ["K"],
+      "joy_buttons": [3]
+    },
+    "hop": {
+      "keys": ["L"],
+      "joy_buttons": [9]
+    },
+    "routine": {
+      "keys": ["Q"],
+      "joy_buttons": [8]
+    },
+    "interact": {
+      "keys": ["E"],
+      "joy_buttons": [0]
+    },
+    "back": {
+      "keys": ["Escape"],
+      "joy_buttons": [1, 6]
+    },
+    "map": {
+      "keys": ["Tab"],
+      "joy_buttons": [4]
+    }
+  }
+}

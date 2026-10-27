@@ -21,6 +21,7 @@ config/custom_user_dir_name="Daemon"
 Events="*res://src/autoload/events.gd"
 Data="*res://src/autoload/data.gd"
 Game="*res://src/autoload/game.gd"
+InputRouter="*res://src/autoload/input_router.gd"
 
 [display]
 
