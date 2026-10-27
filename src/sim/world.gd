@@ -20,13 +20,26 @@ var incoming_room: RoomRuntime = null
 var player_machine: Machine = null
 var machines: Array[Machine] = []
 
+# Debug tooling state
+var sim_duration_ms: float = 0.0
+var show_debug_collisions: bool = false
+var show_perf_overlay: bool = false
+var is_recording_input: bool = false
+var recorded_input_stream: Array[Dictionary] = []
+
 @onready var room_container: Node2D = $RoomContainer
 @onready var entities_container: Node2D = $Entities
 @onready var hud_label: Label = $HUD/HUDLabel
+@onready var perf_overlay: Control = $PerfOverlay
+@onready var perf_label: Label = $PerfOverlay/PerfLabel
+@onready var warp_dialog: Control = $WarpDialog
+@onready var warp_input: LineEdit = $WarpDialog/LineEdit
 
 func _ready() -> void:
 	if active_room == null and current_room_id != "":
 		load_room(current_room_id)
+	if warp_input != null:
+		warp_input.text_submitted.connect(_on_warp_submitted)
 
 func _physics_process(delta: float) -> void:
 	if is_transitioning:
@@ -37,6 +50,7 @@ func _physics_process(delta: float) -> void:
 	if game_node != null and game_node.get("paused") == true:
 		return
 
+	var t0: int = Time.get_ticks_usec()
 	tick_count += 1
 
 	# System 1: senses (P3+)
@@ -53,7 +67,82 @@ func _physics_process(delta: float) -> void:
 	# System 9: cleanup
 	_step_cleanup()
 
+	sim_duration_ms = float(Time.get_ticks_usec() - t0) / 1000.0
+
+	_record_input_tick()
 	_update_hud()
+	_update_perf_overlay()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if not (event is InputEventKey):
+		return
+	var key_event: InputEventKey = event as InputEventKey
+	if not key_event.pressed or key_event.echo:
+		return
+
+	match key_event.keycode:
+		KEY_F2:
+			toggle_debug_collisions()
+		KEY_F3:
+			toggle_perf_overlay()
+		KEY_F6:
+			toggle_warp_dialog()
+		KEY_F10:
+			toggle_input_recording()
+
+func toggle_debug_collisions() -> void:
+	show_debug_collisions = not show_debug_collisions
+	# Toggle engine debug collisions hint
+	var tree: SceneTree = get_tree()
+	if tree != null:
+		tree.debug_collisions_hint = show_debug_collisions
+
+func toggle_perf_overlay() -> void:
+	show_perf_overlay = not show_perf_overlay
+	if perf_overlay != null:
+		perf_overlay.visible = show_perf_overlay
+
+func toggle_warp_dialog() -> void:
+	if warp_dialog == null:
+		return
+	warp_dialog.visible = not warp_dialog.visible
+	if warp_dialog.visible:
+		if warp_input != null:
+			warp_input.grab_focus()
+			warp_input.text = current_room_id
+
+func _on_warp_submitted(new_room: String) -> void:
+	var target: String = new_room.strip_edges()
+	if target != "" and target != current_room_id:
+		load_room(target)
+	if warp_dialog != null:
+		warp_dialog.visible = false
+
+func toggle_input_recording() -> void:
+	is_recording_input = not is_recording_input
+	if not is_recording_input:
+		save_input_recording()
+	_update_hud()
+
+func save_input_recording() -> void:
+	var file: FileAccess = FileAccess.open("user://input_record.json", FileAccess.WRITE)
+	if file != null:
+		file.store_string(JSON.stringify(recorded_input_stream, "\t"))
+		print("World: Input recording saved (%d ticks) to user://input_record.json" % recorded_input_stream.size())
+
+func _record_input_tick() -> void:
+	if not is_recording_input or player_machine == null or not is_instance_valid(player_machine):
+		return
+	var intent: Intent = player_machine.current_intent
+	recorded_input_stream.append({
+		"tick": tick_count,
+		"room": current_room_id,
+		"move": [intent.move.x, intent.move.y],
+		"primary": intent.primary,
+		"secondary": intent.secondary,
+		"hop": intent.hop,
+		"eject": intent.eject
+	})
 
 func _step_controllers(tick: int) -> void:
 	for m: Machine in machines:
@@ -214,4 +303,13 @@ func _update_hud() -> void:
 	var size_str: String = "XS"
 	if player_machine != null and is_instance_valid(player_machine):
 		size_str = player_machine.size_class.to_upper()
-	hud_label.text = "TICK: %06d | ROOM: %s | SIZE: %s" % [tick_count, current_room_id, size_str]
+	var rec_str: String = ""
+	if is_recording_input:
+		rec_str = " | REC: ON"
+	hud_label.text = "TICK: %06d | ROOM: %s | SIZE: %s%s" % [tick_count, current_room_id, size_str, rec_str]
+
+func _update_perf_overlay() -> void:
+	if perf_label == null or not show_perf_overlay:
+		return
+	var fps: int = Engine.get_frames_per_second()
+	perf_label.text = "FPS: %d | SIM: %.2f ms | ACTIVE: %d" % [fps, sim_duration_ms, machines.size()]
