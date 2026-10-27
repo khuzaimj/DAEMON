@@ -107,6 +107,35 @@ func register_projectile(p: Projectile) -> void:
 	if not projectiles.has(p):
 		projectiles.append(p)
 
+func _process(_delta: float) -> void:
+	if hijack_fsm != null and (hijack_fsm.state == HijackFSM.State.TARGETING or hijack_fsm.state == HijackFSM.State.TRANSIT):
+		queue_redraw()
+	elif player_machine != null and player_machine.pin_position != Vector2.ZERO:
+		queue_redraw()
+
+func _draw() -> void:
+	if hijack_fsm == null:
+		return
+
+	if hijack_fsm.state == HijackFSM.State.TARGETING:
+		# Draw link range radius
+		draw_arc(hijack_fsm.spark_pos, hijack_fsm.link_range_px, 0.0, TAU, 32, Color(0.2, 0.8, 1.0, 0.15), 1.0)
+		for cand: Dictionary in hijack_fsm.targeting_candidates:
+			var c_pos: Vector2 = cand.get("pos", Vector2.ZERO)
+			var c_id: String = str(cand.get("id", ""))
+			if c_id == hijack_fsm.selected_target_id:
+				draw_line(hijack_fsm.spark_pos, c_pos, Color(0.2, 1.0, 0.8, 0.8), 1.5)
+				draw_rect(Rect2(c_pos - Vector2(10, 10), Vector2(20, 20)), Color(0.2, 1.0, 0.8, 0.9), false, 1.5)
+			else:
+				draw_rect(Rect2(c_pos - Vector2(8, 8), Vector2(16, 16)), Color(0.2, 0.8, 1.0, 0.3), false, 1.0)
+
+	elif hijack_fsm.state == HijackFSM.State.TRANSIT:
+		draw_line(hijack_fsm.spark_pos, hijack_fsm.transit_target_pos, Color(0.3, 1.0, 0.9, 0.4), 1.0)
+		draw_circle(hijack_fsm.spark_pos, 4.0, Color(0.8, 1.0, 0.9, 1.0))
+
+	if player_machine != null and is_instance_valid(player_machine) and player_machine.pin_position != Vector2.ZERO:
+		draw_circle(player_machine.pin_position, 3.0, Color(1.0, 0.8, 0.2, 0.7))
+
 func _physics_process(delta: float) -> void:
 	# 1. Sample manual player input via InputRouter (zero out if warp dialog is open)
 	var input_router: Node = get_node_or_null("/root/InputRouter")
@@ -1128,11 +1157,17 @@ func _update_hud() -> void:
 				fsm_state_str = "TRANSIT"
 			HijackFSM.State.NODE_PILOT:
 				fsm_state_str = "NODE"
+	var game_node: Node = get_node_or_null("/root/Game")
+	var garage_count: int = 0
+	if game_node != null:
+		var reg: Variant = game_node.get("registered_models")
+		if reg is Array:
+			garage_count = (reg as Array).size()
 	var rec_str: String = ""
 	if is_recording_input:
 		rec_str = " | REC: ON"
-	hud_label.text = "TICK: %06d | ROOM: %s | %s | BODY: %s | HP: %s | HEAT: %s | SIZE: %s%s" % [
-		tick_count, current_room_id, fsm_state_str, body_name, hp_str, heat_str, size_str, rec_str
+	hud_label.text = "TICK: %06d | ROOM: %s | %s | BODY: %s | HP: %s | HEAT: %s | SIZE: %s | GARAGE: %d/10%s" % [
+		tick_count, current_room_id, fsm_state_str, body_name, hp_str, heat_str, size_str, garage_count, rec_str
 	]
 
 func _update_perf_overlay() -> void:
