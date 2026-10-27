@@ -117,6 +117,16 @@ func _execute_ability(slot_name: String, slot: Dictionary, data: Dictionary, dir
 			MeleeAbilities.start_claw(machine, data, dir)
 		"suction":
 			MeleeAbilities.start_suction(machine, data, dir)
+		"projectile":
+			RangedAbilities.start_projectile(machine, data, dir)
+		"overwatch":
+			RangedAbilities.start_overwatch(machine, data, dir)
+		"overload_shot":
+			RangedAbilities.start_overload_shot(machine, data, dir)
+		"harpoon":
+			RangedAbilities.start_harpoon(machine, data, dir)
+		"throw_parcel":
+			RangedAbilities.start_throw_parcel(machine, data, dir)
 	
 	ability_triggered.emit(slot_name, str(slot["id"]), kind, dir)
 

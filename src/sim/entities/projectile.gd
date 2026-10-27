@@ -1,0 +1,104 @@
+class_name Projectile
+extends Area2D
+
+var source_machine: Machine = null
+var velocity: Vector2 = Vector2.ZERO
+var max_distance: float = 128.0
+var distance_traveled: float = 0.0
+var damage: int = 1
+var damage_type: String = "kinetic"
+var status_on_hit: String = ""
+var status_duration_ticks: int = 0
+var knockback_force: float = 1.0
+var proj_color: Color = Color(0.2, 0.9, 1.0)
+var radius: float = 2.5
+var is_active: bool = true
+
+func _ready() -> void:
+	# Layer 9: projectile (256)
+	collision_layer = 1 << (9 - 1)
+	# Layer 1: solid (1) and Layer 6: hurtbox (32)
+	collision_mask = (1 << (1 - 1)) | (1 << (6 - 1))
+	
+	area_entered.connect(_on_area_entered)
+	body_entered.connect(_on_body_entered)
+	
+	if get_node_or_null("CollisionShape2D") == null:
+		var shape_node: CollisionShape2D = CollisionShape2D.new()
+		var circle_shape: CircleShape2D = CircleShape2D.new()
+		circle_shape.radius = radius
+		shape_node.shape = circle_shape
+		add_child(shape_node)
+
+func setup(source: Machine, dir: Vector2, speed_px: float, max_dist_px: float, dmg: int, dmg_type: String = "kinetic") -> void:
+	source_machine = source
+	var norm_dir: Vector2 = dir.normalized() if dir != Vector2.ZERO else Vector2.RIGHT
+	velocity = norm_dir * speed_px
+	max_distance = max_dist_px
+	damage = dmg
+	damage_type = dmg_type
+	position = source.global_position + norm_dir * 8.0
+
+func _draw() -> void:
+	draw_circle(Vector2.ZERO, radius, proj_color)
+
+func _physics_process(delta: float) -> void:
+	step(delta)
+
+func step(delta: float) -> void:
+	if not is_active:
+		return
+	var move_step: Vector2 = velocity * delta
+	position += move_step
+	distance_traveled += move_step.length()
+	queue_redraw()
+	
+	_check_direct_hits()
+	
+	if distance_traveled >= max_distance:
+		is_active = false
+		queue_free()
+
+func _check_direct_hits() -> void:
+	if not is_active:
+		return
+	var parent_node: Node = get_parent()
+	if parent_node == null:
+		return
+	for child: Node in parent_node.get_children():
+		if child is Machine and child != source_machine and is_instance_valid(child):
+			var m: Machine = child as Machine
+			var hit_dist: float = 10.0
+			if m.collider != null and m.collider.shape != null:
+				hit_dist = m.collider.shape.get_rect().size.x * 0.5 + radius + 2.0
+			if global_position.distance_to(m.global_position) <= hit_dist:
+				_apply_hit(m)
+				return
+
+func _apply_hit(target_machine: Machine) -> void:
+	if not is_active:
+		return
+	is_active = false
+	target_machine.take_damage(damage, damage_type)
+	if not status_on_hit.is_empty():
+		target_machine.apply_status(status_on_hit, status_duration_ticks)
+	target_machine.velocity += velocity.normalized() * (knockback_force * float(Grid.TILE_SIZE))
+	queue_free()
+
+func _on_area_entered(area: Area2D) -> void:
+	if not is_active:
+		return
+	var target_machine: Machine = null
+	if area.owner is Machine:
+		target_machine = area.owner as Machine
+	elif area.get_parent() is Machine:
+		target_machine = area.get_parent() as Machine
+		
+	if target_machine != null and target_machine != source_machine:
+		_apply_hit(target_machine)
+
+func _on_body_entered(body: Node2D) -> void:
+	if not is_active or body == source_machine:
+		return
+	is_active = false
+	queue_free()

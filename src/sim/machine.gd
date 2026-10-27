@@ -156,8 +156,6 @@ func step_controller(tick: int) -> void:
 	state.tick(1)
 	if controller != null:
 		current_intent = controller.decide(self, tick)
-	else:
-		current_intent.reset()
 		
 	# Update facing from move or aim
 	if current_intent.aim != Vector2.ZERO:
