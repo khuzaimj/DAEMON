@@ -1,0 +1,9 @@
+{
+  "sizes": {
+    "xs": { "name": "XS", "hitbox_px": 8,  "description": "Cursor spark; fits conduits" },
+    "s":  { "name": "S",  "hitbox_px": 12, "description": "Small bodies (Drone, Crawler, Courier)" },
+    "m":  { "name": "M",  "hitbox_px": 14, "description": "Medium bodies (Janitor, Sentry, Welder, Diver, Medic)" },
+    "l":  { "name": "L",  "hitbox_px": 24, "description": "Large bodies (Loader); blocked by 1-tile gaps" },
+    "xl": { "name": "XL", "hitbox_px": 48, "description": "Boss subsystems and super-heavy machinery" }
+  }
+}

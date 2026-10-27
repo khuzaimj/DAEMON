@@ -12,9 +12,7 @@ func get_json(res_path: String) -> Variant:
 		return null
 	var text: String = file.get_as_text()
 	var json: JSON = JSON.new()
-	var err: Error = json.parse(text)
-	if err != OK:
-		printerr("Data: Error parsing %s at line %d: %s" % [res_path, json.get_error_line(), json.get_error_message()])
+	if json.parse(text) != OK:
 		return null
 	_cache[res_path] = json.data
 	return json.data
