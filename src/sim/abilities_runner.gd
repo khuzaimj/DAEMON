@@ -133,6 +133,16 @@ func _execute_ability(slot_name: String, slot: Dictionary, data: Dictionary, dir
 			ChannelledAbilities.start_beam_channel(machine, data, dir)
 		"repair_beam":
 			ChannelledAbilities.start_repair_beam(machine, data, dir)
+		"ping":
+			UtilityAbilities.start_ping(machine, data, dir)
+		"lift_carry":
+			UtilityAbilities.start_lift_carry(machine, data, dir)
+		"tow":
+			UtilityAbilities.start_tow(machine, data, dir)
+		"bubble_shield":
+			UtilityAbilities.start_bubble_shield(machine, data, dir)
+		"patch":
+			UtilityAbilities.start_patch(machine, data, dir)
 	
 	ability_triggered.emit(slot_name, str(slot["id"]), kind, dir)
 

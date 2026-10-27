@@ -14,6 +14,8 @@ var controller: Controller = null
 var current_intent: Intent = Intent.new()
 var state: BodyState = BodyState.new()
 var facing: Vector2 = Vector2.DOWN
+var passives: Array[String] = []
+var carried_object: CharacterBody2D = null
 
 var is_dashing: bool = false
 var dash_direction: Vector2 = Vector2.ZERO
@@ -88,12 +90,20 @@ func apply_body_data(data: Dictionary) -> void:
 		for m: Variant in med_val:
 			mediums.append(str(m))
 			
+	var pass_val: Variant = data.get("passives", [])
+	passives.clear()
+	if pass_val is Array:
+		for p: Variant in pass_val:
+			passives.append(str(p))
+			
 	state.setup_from_dict(data)
 	_apply_size_class()
 	if abilities != null:
 		abilities.setup(self, primary_ability, secondary_ability)
 
 func take_damage(amount: int, damage_type: String = "kinetic", ignore_invuln: bool = false) -> bool:
+	if damage_type == "thermal" and (passives.has("fire_immune") or body_id == "welder"):
+		return false
 	return state.take_damage(amount, damage_type, ignore_invuln)
 
 func add_heat(amount: float) -> void:
@@ -249,12 +259,31 @@ func step_movement(delta: float) -> void:
 
 	var speed_px: float = base_speed_tiles * float(Grid.TILE_SIZE)
 
-	# Check terrain medium at current position
+	# Check terrain medium and hazards at current position
 	if current_room != null:
 		var terrain: Dictionary = current_room.terrain_at(global_position)
 		var medium_type: String = str(terrain.get("medium", ""))
-		if medium_type == "liquid" and not mediums.has("liquid"):
-			speed_px *= 0.5 # Coolant slows non-swimmers
+		var hazard_type: String = str(terrain.get("hazard", ""))
+
+		# Medium: Liquid (Coolant)
+		if medium_type == "liquid":
+			if not mediums.has("liquid"):
+				speed_px *= 0.5 # Coolant slows non-swimmers
+				state.add_heat(15.0 * delta) # Non-divers take 15 Heat/s
+
+		# Medium: Void (Pit) - Drone passive cooling
+		if medium_type == "void" and mediums.has("hover"):
+			state.current_heat = maxf(0.0, state.current_heat - (8.0 * delta)) # 8 Heat/s drain
+
+		# Hazard: Spikes / Floor hazards
+		if hazard_type == "spikes":
+			if not (passives.has("insulated") or body_id == "crawler"):
+				take_damage(1, "kinetic")
+
+		# Hazard: Bitrot
+		if hazard_type == "bitrot":
+			if not (passives.has("bitrot_immune") or body_id == "janitor"):
+				take_damage(1, "decay")
 
 	velocity = current_intent.move * speed_px
 	if Engine.is_in_physics_frame():
