@@ -31,6 +31,41 @@ func _ready() -> void:
 	_apply_size_class()
 	if abilities != null:
 		abilities.setup(self, primary_ability, secondary_ability)
+	if hurt_box != null:
+		hurt_box.area_entered.connect(_on_hurtbox_area_entered)
+
+func _process(_delta: float) -> void:
+	if visual_rect == null:
+		return
+	if state.is_crashed:
+		visual_rect.color = Color(0.2, 0.2, 0.2, 1.0)
+	elif state.is_overheated:
+		var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.015)
+		visual_rect.color = Color(1.0, 0.2 + 0.3 * pulse, 0.0, 1.0)
+	elif state.invulnerability_ticks > 0:
+		var flash: bool = (state.invulnerability_ticks % 6) < 3
+		var base_col: Color = _get_default_color_for_body()
+		visual_rect.color = Color(base_col.r, base_col.g, base_col.b, 0.4 if flash else 1.0)
+	elif state.is_open():
+		var pulse: float = 0.5 + 0.5 * sin(float(Time.get_ticks_msec()) * 0.01)
+		var base_col: Color = _get_default_color_for_body()
+		visual_rect.color = base_col.lerp(Color.WHITE, 0.5 * pulse)
+	else:
+		visual_rect.color = _get_default_color_for_body()
+
+func _get_default_color_for_body() -> Color:
+	match body_id.to_lower():
+		"cursor": return Color(0.1, 0.8, 0.9, 1.0) # Cyan
+		"janitor": return Color(0.9, 0.7, 0.2, 1.0) # Amber
+		"loader": return Color(0.8, 0.5, 0.1, 1.0) # Rust
+		"sentry": return Color(0.4, 0.7, 0.8, 1.0) # Steel Cyan
+		"drone": return Color(0.7, 0.3, 0.9, 1.0) # Neon Violet
+		"welder": return Color(0.9, 0.4, 0.1, 1.0) # Fire Orange
+		"diver": return Color(0.1, 0.6, 0.6, 1.0) # Deep Teal
+		"crawler": return Color(0.4, 0.7, 0.3, 1.0) # Olive Green
+		"courier": return Color(0.9, 0.9, 0.2, 1.0) # Yellow
+		"medic": return Color(0.9, 0.9, 0.9, 1.0) # White
+		_: return Color(0.1, 0.8, 0.9, 1.0)
 
 func apply_body_data(data: Dictionary) -> void:
 	body_id = str(data.get("id", body_id))
@@ -50,6 +85,24 @@ func apply_body_data(data: Dictionary) -> void:
 	_apply_size_class()
 	if abilities != null:
 		abilities.setup(self, primary_ability, secondary_ability)
+
+func take_damage(amount: int, damage_type: String = "kinetic", ignore_invuln: bool = false) -> bool:
+	return state.take_damage(amount, damage_type, ignore_invuln)
+
+func add_heat(amount: float) -> void:
+	state.add_heat(amount)
+
+func heal(amount: int) -> void:
+	state.repair(amount)
+
+func apply_status(status_name: String, duration_ticks: int) -> void:
+	state.apply_status(status_name, duration_ticks)
+
+func _on_hurtbox_area_entered(area: Area2D) -> void:
+	if area.has_meta("damage"):
+		var dmg: int = int(area.get_meta("damage"))
+		var dmg_type: String = str(area.get_meta("damage_type", "kinetic"))
+		take_damage(dmg, dmg_type)
 
 func _apply_size_class() -> void:
 	var hitbox_size: float = 8.0

@@ -346,12 +346,21 @@ func _update_hud() -> void:
 	if hud_label == null:
 		return
 	var size_str: String = "XS"
+	var body_name: String = "CURSOR"
+	var hp_str: String = "02/02"
+	var heat_str: String = "000/100"
 	if player_machine != null and is_instance_valid(player_machine):
 		size_str = player_machine.size_class.to_upper()
+		body_name = player_machine.body_id.to_upper()
+		if player_machine.state != null:
+			hp_str = "%02d/%02d" % [player_machine.state.current_integrity, player_machine.state.max_integrity]
+			heat_str = "%03d/%03d" % [int(round(player_machine.state.current_heat)), int(round(player_machine.state.max_heat))]
 	var rec_str: String = ""
 	if is_recording_input:
 		rec_str = " | REC: ON"
-	hud_label.text = "TICK: %06d | ROOM: %s | SIZE: %s%s" % [tick_count, current_room_id, size_str, rec_str]
+	hud_label.text = "TICK: %06d | ROOM: %s | BODY: %s | HP: %s | HEAT: %s | SIZE: %s%s" % [
+		tick_count, current_room_id, body_name, hp_str, heat_str, size_str, rec_str
+	]
 
 func _update_perf_overlay() -> void:
 	if perf_label == null or not show_perf_overlay:
