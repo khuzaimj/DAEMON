@@ -1,0 +1,9 @@
+{
+  "id": "debug",
+  "name": "Debug Bay",
+  "palette": "amber_dim",
+  "tileset": "debug",
+  "music": "debug",
+  "ambient": { "darkness": 0.0 },
+  "rooms_target": 4
+}

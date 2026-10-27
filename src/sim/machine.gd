@@ -60,7 +60,7 @@ func step_controller(tick: int) -> void:
 		current_intent.reset()
 
 ## Called once per tick by World movement system
-func step_movement(_delta: float) -> void:
+func step_movement(delta: float) -> void:
 	var speed_px: float = base_speed_tiles * float(Grid.TILE_SIZE)
 
 	# Check terrain medium at current position
@@ -71,4 +71,11 @@ func step_movement(_delta: float) -> void:
 			speed_px *= 0.5 # Coolant slows non-swimmers
 
 	velocity = current_intent.move * speed_px
-	move_and_slide()
+	if Engine.is_in_physics_frame():
+		move_and_slide()
+	else:
+		var motion: Vector2 = velocity * delta
+		var col: KinematicCollision2D = move_and_collide(motion)
+		if col != null:
+			var remainder: Vector2 = col.get_remainder().slide(col.get_normal())
+			move_and_collide(remainder)
