@@ -337,6 +337,7 @@ func _on_host_parked(host_id: String, routine: String, pin_pos: Vector2) -> void
 		host.operational_state = "parked"
 		host.parked_routine = routine
 		host.pin_position = pin_pos
+		host.set_meta("parked_tick", tick_count)
 		var p_state: ParkedState = ParkedState.new(routine, host.position, pin_pos, host.facing)
 		var r_ctrl: RoutineController = RoutineController.new(p_state)
 		r_ctrl.name = "Controller"
@@ -405,6 +406,161 @@ func _on_model_registered(model_id: String) -> void:
 	var events_node: Node = get_node_or_null("/root/Events")
 	if events_node != null:
 		events_node.emit_signal("log_found", "reg_%s" % model_id)
+
+func _save_current_room_parked_hosts() -> void:
+	if current_room_id == "":
+		return
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node == null:
+		return
+	var p_hosts: Dictionary = game_node.get("persistent_parked_hosts")
+	var room_records: Array = []
+	for m: Machine in machines:
+		if not is_instance_valid(m) or m == player_machine:
+			continue
+		if m.operational_state == "parked":
+			room_records.append({
+				"id": m.entity_id,
+				"model": m.body_id,
+				"pos": [m.position.x, m.position.y],
+				"facing": [m.facing.x, m.facing.y],
+				"routine": m.parked_routine,
+				"pin_pos": [m.pin_position.x, m.pin_position.y],
+				"integrity": m.state.current_integrity if m.state != null else 10,
+				"heat": m.state.current_heat if m.state != null else 0.0,
+				"is_holding_latch": bool(m.get_meta("is_holding_latch", false)),
+				"parked_tick": int(m.get_meta("parked_tick", tick_count))
+			})
+	if room_records.is_empty():
+		p_hosts.erase(current_room_id)
+	else:
+		p_hosts[current_room_id] = room_records
+	_enforce_garage_slots_cap()
+
+func _restore_current_room_parked_hosts() -> void:
+	if current_room_id == "":
+		return
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node == null:
+		return
+	var p_hosts: Dictionary = game_node.get("persistent_parked_hosts")
+	if not p_hosts.has(current_room_id):
+		return
+	var records: Array = p_hosts[current_room_id]
+	for rec_val: Variant in records:
+		if not (rec_val is Dictionary):
+			continue
+		var rec: Dictionary = rec_val as Dictionary
+		var hid: String = str(rec.get("id", ""))
+		if _find_machine_by_id(hid) != null:
+			continue
+		var model_id: String = str(rec.get("model", "janitor"))
+		var pos_arr: Array = rec.get("pos", [0, 0])
+		var spawn_pos: Vector2 = Vector2(float(pos_arr[0]), float(pos_arr[1]))
+
+		var scene: PackedScene = load("res://scenes/machine.tscn")
+		if scene == null:
+			continue
+		var m: Machine = scene.instantiate() as Machine
+		m.entity_id = hid
+		m.position = spawn_pos
+		m.current_room = active_room
+		m.operational_state = "parked"
+		m.parked_routine = str(rec.get("routine", "hold"))
+		var pin_arr: Array = rec.get("pin_pos", [spawn_pos.x, spawn_pos.y])
+		m.pin_position = Vector2(float(pin_arr[0]), float(pin_arr[1]))
+		m.set_meta("is_holding_latch", bool(rec.get("is_holding_latch", false)))
+		m.set_meta("parked_tick", int(rec.get("parked_tick", tick_count)))
+
+		var facing_arr: Array = rec.get("facing", [0, 1])
+		m.facing = Vector2(float(facing_arr[0]), float(facing_arr[1]))
+
+		entities_container.add_child(m)
+		register_machine(m)
+
+		var data_node: Node = get_node_or_null("/root/Data")
+		var b_dict: Dictionary = {}
+		if data_node != null and data_node.has_method("get_json"):
+			var raw: Variant = data_node.call("get_json", "res://data/bodies/%s.json" % model_id)
+			if raw is Dictionary:
+				b_dict = raw
+		elif FileAccess.file_exists("res://data/bodies/%s.json" % model_id):
+			var file: FileAccess = FileAccess.open("res://data/bodies/%s.json" % model_id, FileAccess.READ)
+			if file != null:
+				var json: JSON = JSON.new()
+				if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+					b_dict = json.data as Dictionary
+		if not b_dict.is_empty():
+			m.apply_body_data(b_dict)
+
+		if m.state != null:
+			m.state.current_integrity = int(rec.get("integrity", m.state.max_integrity))
+			m.state.current_heat = float(rec.get("heat", 0.0))
+
+		var p_state: ParkedState = ParkedState.new(m.parked_routine, spawn_pos, m.pin_position, m.facing)
+		var r_ctrl: RoutineController = RoutineController.new(p_state)
+		r_ctrl.name = "Controller"
+		var old_ctrl: Node = m.get_node_or_null("Controller")
+		if old_ctrl != null:
+			m.remove_child(old_ctrl)
+			old_ctrl.queue_free()
+		m.add_child(r_ctrl)
+		m.controller = r_ctrl
+
+func _enforce_garage_slots_cap() -> void:
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node == null:
+		return
+	var p_hosts: Dictionary = game_node.get("persistent_parked_hosts")
+	var cap: int = int(game_node.get("garage_slots_cap"))
+	if cap <= 0:
+		cap = 3
+
+	var outside_hosts: Array[Dictionary] = []
+	for r_id: String in p_hosts.keys():
+		if r_id == current_room_id:
+			continue
+		var arr: Array = p_hosts[r_id]
+		for host_dict: Variant in arr:
+			if host_dict is Dictionary:
+				var d: Dictionary = (host_dict as Dictionary).duplicate()
+				d["_room_id"] = r_id
+				outside_hosts.append(d)
+
+	while outside_hosts.size() > cap:
+		outside_hosts.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a.get("parked_tick", 0)) < int(b.get("parked_tick", 0))
+		)
+
+		var recycled_one: bool = false
+		for i: int in range(outside_hosts.size()):
+			var candidate: Dictionary = outside_hosts[i]
+			if not bool(candidate.get("is_holding_latch", false)):
+				var target_room: String = str(candidate.get("_room_id", ""))
+				var target_id: String = str(candidate.get("id", ""))
+				if p_hosts.has(target_room):
+					var room_arr: Array = p_hosts[target_room]
+					for j: int in range(room_arr.size() - 1, -1, -1):
+						if str(room_arr[j].get("id", "")) == target_id:
+							room_arr.remove_at(j)
+							break
+					if room_arr.is_empty():
+						p_hosts.erase(target_room)
+
+				outside_hosts.remove_at(i)
+				var refund: int = 10
+				var cur_scrap: int = int(game_node.get("scrap"))
+				game_node.set("scrap", cur_scrap + refund)
+
+				var events_node: Node = get_node_or_null("/root/Events")
+				if events_node != null:
+					events_node.emit_signal("host_recycled", target_id, refund)
+
+				recycled_one = true
+				break
+
+		if not recycled_one:
+			break
 
 func _get_hijack_candidates(origin_pos: Vector2) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
@@ -661,6 +817,7 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 func start_transition(next_room_id: String, dir: Vector2) -> void:
 	if is_transitioning:
 		return
+	_save_current_room_parked_hosts()
 	_clear_transient_projectiles()
 
 	var room_path: String = WorldGrid.find_room_path(next_room_id)
@@ -741,6 +898,7 @@ func _finish_transition() -> void:
 		if room_path != "":
 			var r_data: Dictionary = RoomLoader.load_room(room_path)
 			_spawn_room_entities(r_data)
+			_restore_current_room_parked_hosts()
 
 	is_transitioning = false
 	var game_node: Node = get_node_or_null("/root/Game")
@@ -757,6 +915,8 @@ func _finish_transition() -> void:
 
 func load_room(room_id: String) -> void:
 	Engine.time_scale = 1.0
+	if current_room_id != "" and current_room_id != room_id:
+		_save_current_room_parked_hosts()
 	current_room_id = room_id
 	var room_path: String = WorldGrid.find_room_path(room_id)
 	if room_path == "":
@@ -785,6 +945,7 @@ func load_room(room_id: String) -> void:
 	_clear_room_entities()
 	_setup_player_machine(data)
 	_spawn_room_entities(data)
+	_restore_current_room_parked_hosts()
 	var pause_ttl: bool = bool(data.get("pause_ttl_until_hijack", false))
 	hijack_fsm.reset_for_room(pause_ttl)
 	_update_hud()

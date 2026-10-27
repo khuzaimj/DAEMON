@@ -3,7 +3,7 @@ extends GutTest
 func test_four_room_traversal() -> void:
 	var world_scene: PackedScene = load("res://scenes/world.tscn")
 	var world: World = world_scene.instantiate() as World
-	add_child_autofree(world)
+	add_child_autoqfree(world)
 	world.load_room("debug_01")
 
 	assert_eq(world.current_room_id, "debug_01", "Initial room must be debug_01")
