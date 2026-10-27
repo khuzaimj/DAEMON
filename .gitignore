@@ -1,0 +1,16 @@
+# Godot 4
+.godot/
+*.translation
+
+# Build artifacts
+build/
+shots/
+
+# Mono / C# (if any)
+.mono/
+
+# Temporary / editor files
+*.tmp
+*.bak
+.DS_Store
+Thumbs.db
