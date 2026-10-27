@@ -1,0 +1,9 @@
+{
+  "id": "ping",
+  "kind": "ping",
+  "heat_cost": 10,
+  "cooldown": 3.0,
+  "windup": 0.0,
+  "params": { "radius": 80.0, "duration": 3.0 },
+  "sfx": "ping"
+}

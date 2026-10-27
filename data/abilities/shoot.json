@@ -1,0 +1,9 @@
+{
+  "id": "shoot",
+  "kind": "projectile",
+  "heat_cost": 15,
+  "cooldown": 0.4,
+  "windup": 0.05,
+  "params": { "speed": 14.0, "range": 8.0, "damage": 2 },
+  "sfx": "shoot"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "diver",
+  "name": "Diver",
+  "size": "M",
+  "weight": 1,
+  "medium": ["ground", "liquid"],
+  "speed": 3.6,
+  "integrity": 8,
+  "heat_max": 100,
+  "heat_cooldown": 20,
+  "primary": "harpoon",
+  "secondary": "bubble",
+  "passives": ["coolant_swim"],
+  "tags": ["aquatic", "machine"],
+  "sprite": "diver",
+  "clearance": 0,
+  "garage_cost": 65,
+  "unlock_zone": "swap"
+}

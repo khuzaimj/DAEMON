@@ -101,6 +101,8 @@ func _unhandled_input(event: InputEvent) -> void:
 			toggle_perf_overlay()
 		KEY_F6:
 			toggle_warp_dialog()
+		KEY_F8:
+			cycle_player_body()
 		KEY_F10:
 			toggle_input_recording()
 
@@ -131,6 +133,36 @@ func _on_warp_submitted(new_room: String) -> void:
 		load_room(target)
 	if warp_dialog != null:
 		warp_dialog.visible = false
+
+const BODY_CYCLE_ORDER: Array[String] = [
+	"cursor", "janitor", "loader", "sentry", "drone",
+	"welder", "diver", "crawler", "courier", "medic"
+]
+
+func cycle_player_body() -> void:
+	if player_machine == null or not is_instance_valid(player_machine):
+		return
+	var current_idx: int = BODY_CYCLE_ORDER.find(player_machine.body_id.to_lower())
+	var next_idx: int = (current_idx + 1) % BODY_CYCLE_ORDER.size()
+	var next_body_id: String = BODY_CYCLE_ORDER[next_idx]
+	
+	var data_node: Node = get_node_or_null("/root/Data")
+	var body_dict: Dictionary = {}
+	if data_node != null and data_node.has_method("get_json"):
+		var raw: Variant = data_node.call("get_json", "res://data/bodies/%s.json" % next_body_id)
+		if raw is Dictionary:
+			body_dict = raw
+	elif FileAccess.file_exists("res://data/bodies/%s.json" % next_body_id):
+		var file: FileAccess = FileAccess.open("res://data/bodies/%s.json" % next_body_id, FileAccess.READ)
+		if file != null:
+			var json: JSON = JSON.new()
+			if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+				body_dict = json.data as Dictionary
+				
+	if not body_dict.is_empty():
+		player_machine.apply_body_data(body_dict)
+		_update_hud()
+		print("World: Swapped player body to: %s (%s)" % [player_machine.body_id, player_machine.size_class.to_upper()])
 
 func toggle_input_recording() -> void:
 	is_recording_input = not is_recording_input

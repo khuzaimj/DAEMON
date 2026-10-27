@@ -1,0 +1,9 @@
+{
+  "id": "cling",
+  "kind": "cling",
+  "heat_cost": 15,
+  "cooldown": 1.0,
+  "windup": 0.0,
+  "params": { "duration": 1.5 },
+  "sfx": "cling"
+}

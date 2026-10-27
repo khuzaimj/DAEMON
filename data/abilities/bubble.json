@@ -1,0 +1,9 @@
+{
+  "id": "bubble",
+  "kind": "bubble_shield",
+  "heat_cost": 30,
+  "cooldown": 3.0,
+  "windup": 0.0,
+  "params": { "duration": 1.0 },
+  "sfx": "bubble"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "cursor",
+  "name": "Cursor",
+  "size": "XS",
+  "weight": 0,
+  "medium": ["ground"],
+  "speed": 7.0,
+  "integrity": 2,
+  "heat_max": 100,
+  "heat_cooldown": 20,
+  "primary": "ping",
+  "secondary": "",
+  "passives": ["conduit_fit"],
+  "tags": ["daemon", "machine"],
+  "sprite": "cursor",
+  "clearance": 0,
+  "garage_cost": 0,
+  "unlock_zone": "boot"
+}

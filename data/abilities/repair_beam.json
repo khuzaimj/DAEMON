@@ -1,0 +1,9 @@
+{
+  "id": "repair_beam",
+  "kind": "repair_beam",
+  "heat_cost": 20,
+  "cooldown": 0.5,
+  "windup": 0.05,
+  "params": { "range": 48.0, "heal_amount": 2 },
+  "sfx": "repair"
+}

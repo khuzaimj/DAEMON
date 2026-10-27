@@ -1,0 +1,19 @@
+{
+  "id": "sentry",
+  "name": "Sentry",
+  "size": "M",
+  "weight": 2,
+  "medium": ["ground"],
+  "speed": 0.0,
+  "integrity": 8,
+  "heat_max": 100,
+  "heat_cooldown": 20,
+  "primary": "shoot",
+  "secondary": "overwatch",
+  "passives": ["armored_front"],
+  "tags": ["turret", "machine"],
+  "sprite": "sentry",
+  "clearance": 0,
+  "garage_cost": 50,
+  "unlock_zone": "cache"
+}

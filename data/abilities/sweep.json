@@ -1,0 +1,9 @@
+{
+  "id": "sweep",
+  "kind": "melee_arc",
+  "heat_cost": 15,
+  "cooldown": 0.6,
+  "windup": 0.1,
+  "params": { "arc": 90.0, "radius": 24.0, "damage": 2, "knockback": 2.0, "clears": "sweep" },
+  "sfx": "sweep"
+}

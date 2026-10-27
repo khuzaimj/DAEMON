@@ -1,0 +1,9 @@
+{
+  "id": "lift",
+  "kind": "lift_carry",
+  "heat_cost": 10,
+  "cooldown": 0.5,
+  "windup": 0.0,
+  "params": { "max_weight": 2 },
+  "sfx": "lift"
+}

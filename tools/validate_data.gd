@@ -182,10 +182,10 @@ func _init() -> void:
 			# West border (col 0) & East border (col 29)
 			for y: int in range(rows.size()):
 				var r: String = str(rows[y])
-				if r[0] != "#" and not exits.has("w"):
+				if r.length() > 0 and r[0] != "#" and not exits.has("w"):
 					printerr("ERROR: Room %s has open West border at row %d but no 'w' exit declared" % [room_id, y])
 					error_count += 1
-				if r[ROOM_WIDTH - 1] != "#" and not exits.has("e"):
+				if r.length() >= ROOM_WIDTH and r[ROOM_WIDTH - 1] != "#" and not exits.has("e"):
 					printerr("ERROR: Room %s has open East border at row %d but no 'e' exit declared" % [room_id, y])
 					error_count += 1
 

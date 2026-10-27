@@ -1,0 +1,9 @@
+{
+  "id": "harpoon",
+  "kind": "harpoon",
+  "heat_cost": 20,
+  "cooldown": 1.0,
+  "windup": 0.1,
+  "params": { "speed": 15.0, "range": 6.0, "damage": 1 },
+  "sfx": "harpoon"
+}

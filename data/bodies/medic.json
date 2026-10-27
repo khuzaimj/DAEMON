@@ -1,0 +1,19 @@
+{
+  "id": "medic",
+  "name": "Medic",
+  "size": "M",
+  "weight": 1,
+  "medium": ["ground"],
+  "speed": 3.4,
+  "integrity": 6,
+  "heat_max": 100,
+  "heat_cooldown": 20,
+  "primary": "repair_beam",
+  "secondary": "patch",
+  "passives": ["repeat_heal"],
+  "tags": ["support", "machine"],
+  "sprite": "medic",
+  "clearance": 0,
+  "garage_cost": 80,
+  "unlock_zone": "kernel"
+}

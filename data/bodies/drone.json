@@ -1,0 +1,19 @@
+{
+  "id": "drone",
+  "name": "Drone",
+  "size": "S",
+  "weight": 0,
+  "medium": ["hover"],
+  "speed": 4.5,
+  "integrity": 4,
+  "heat_max": 100,
+  "heat_cooldown": 20,
+  "primary": "pulse",
+  "secondary": "tow",
+  "passives": ["pit_hover"],
+  "tags": ["aerial", "machine"],
+  "sprite": "drone",
+  "clearance": 0,
+  "garage_cost": 60,
+  "unlock_zone": "stack"
+}

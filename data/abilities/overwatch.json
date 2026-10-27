@@ -1,0 +1,9 @@
+{
+  "id": "overwatch",
+  "kind": "overwatch",
+  "heat_cost": 5,
+  "cooldown": 0.3,
+  "windup": 0.0,
+  "params": { "arc": 45.0, "range": 8.0, "damage": 2 },
+  "sfx": "overwatch"
+}

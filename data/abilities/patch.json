@@ -1,0 +1,9 @@
+{
+  "id": "patch",
+  "kind": "patch",
+  "heat_cost": 25,
+  "cooldown": 2.0,
+  "windup": 0.0,
+  "params": { "heal": 2 },
+  "sfx": "patch"
+}

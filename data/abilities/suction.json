@@ -1,0 +1,9 @@
+{
+  "id": "suction",
+  "kind": "suction",
+  "heat_cost": 20,
+  "cooldown": 1.0,
+  "windup": 0.0,
+  "params": { "radius": 64.0, "pull_speed": 120.0 },
+  "sfx": "suction"
+}

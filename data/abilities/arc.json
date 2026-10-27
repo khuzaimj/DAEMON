@@ -1,0 +1,9 @@
+{
+  "id": "arc",
+  "kind": "beam_channel",
+  "heat_cost": 35,
+  "cooldown": 1.5,
+  "windup": 0.15,
+  "params": { "range": 64.0, "damage": 2, "breaks": "torch" },
+  "sfx": "arc"
+}

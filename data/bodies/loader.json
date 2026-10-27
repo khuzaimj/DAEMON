@@ -1,0 +1,19 @@
+{
+  "id": "loader",
+  "name": "Loader",
+  "size": "L",
+  "weight": 3,
+  "medium": ["ground"],
+  "speed": 2.6,
+  "integrity": 14,
+  "heat_max": 100,
+  "heat_cooldown": 20,
+  "primary": "ram",
+  "secondary": "lift",
+  "passives": ["knockback_resist"],
+  "tags": ["heavy", "machine"],
+  "sprite": "loader",
+  "clearance": 0,
+  "garage_cost": 40,
+  "unlock_zone": "bus"
+}

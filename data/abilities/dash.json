@@ -1,0 +1,9 @@
+{
+  "id": "dash",
+  "kind": "dash",
+  "heat_cost": 20,
+  "cooldown": 1.2,
+  "windup": 0.0,
+  "params": { "distance": 3.0, "duration": 0.18 },
+  "sfx": "dash"
+}

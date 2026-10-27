@@ -1,0 +1,9 @@
+{
+  "id": "torch",
+  "kind": "flame_cone",
+  "heat_cost": 25,
+  "cooldown": 0.8,
+  "windup": 0.1,
+  "params": { "angle": 45.0, "range": 32.0, "damage": 1, "breaks": "torch" },
+  "sfx": "torch"
+}

@@ -1,0 +1,19 @@
+{
+  "id": "janitor",
+  "name": "Janitor",
+  "size": "M",
+  "weight": 1,
+  "medium": ["ground"],
+  "speed": 3.5,
+  "integrity": 6,
+  "heat_max": 100,
+  "heat_cooldown": 20,
+  "primary": "sweep",
+  "secondary": "suction",
+  "passives": ["bitrot_immune"],
+  "tags": ["service", "machine"],
+  "sprite": "janitor",
+  "clearance": 0,
+  "garage_cost": 20,
+  "unlock_zone": "boot"
+}

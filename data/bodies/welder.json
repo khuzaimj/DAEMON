@@ -1,0 +1,19 @@
+{
+  "id": "welder",
+  "name": "Welder",
+  "size": "M",
+  "weight": 1,
+  "medium": ["ground"],
+  "speed": 3.2,
+  "integrity": 7,
+  "heat_max": 100,
+  "heat_cooldown": 20,
+  "primary": "torch",
+  "secondary": "arc",
+  "passives": ["fire_immune"],
+  "tags": ["thermal", "machine"],
+  "sprite": "welder",
+  "clearance": 0,
+  "garage_cost": 55,
+  "unlock_zone": "heap"
+}

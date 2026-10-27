@@ -81,6 +81,10 @@ func _start_ability(slot_name: String, slot: Dictionary, data: Dictionary, dir: 
 	var windup_sec: float = float(data.get("windup", 0.0))
 	var windup_ticks: int = AbilityMath.seconds_to_ticks(windup_sec)
 	
+	var cd_sec: float = float(data.get("cooldown", 0.5))
+	var cd_ticks: int = AbilityMath.seconds_to_ticks(cd_sec)
+	machine.state.set_cooldown(slot_name, cd_ticks)
+	
 	# Add Heat cost to body state
 	machine.state.add_heat(heat_cost)
 	
@@ -98,11 +102,6 @@ func _execute_ability(slot_name: String, slot: Dictionary, data: Dictionary, dir
 	# Determine duration if channelled or fixed active frames
 	var duration_sec: float = float(data.get("params", {}).get("duration", 0.1))
 	slot["ticks_left"] = AbilityMath.seconds_to_ticks(duration_sec)
-	
-	# Set cooldown on slot
-	var cd_sec: float = float(data.get("cooldown", 0.5))
-	var cd_ticks: int = AbilityMath.seconds_to_ticks(cd_sec)
-	machine.state.set_cooldown(slot_name, cd_ticks)
 	
 	match kind:
 		"charge_dash":

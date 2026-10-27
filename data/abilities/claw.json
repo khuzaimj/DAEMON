@@ -1,0 +1,9 @@
+{
+  "id": "claw",
+  "kind": "claw",
+  "heat_cost": 10,
+  "cooldown": 0.35,
+  "windup": 0.05,
+  "params": { "arc": 60.0, "radius": 18.0, "damage": 2, "knockback": 1.5 },
+  "sfx": "claw"
+}

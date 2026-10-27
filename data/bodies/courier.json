@@ -1,0 +1,19 @@
+{
+  "id": "courier",
+  "name": "Courier",
+  "size": "S",
+  "weight": 0,
+  "medium": ["ground"],
+  "speed": 5.5,
+  "integrity": 5,
+  "heat_max": 100,
+  "heat_cooldown": 20,
+  "primary": "parcel",
+  "secondary": "dash",
+  "passives": ["collapse_cross"],
+  "tags": ["runner", "machine"],
+  "sprite": "courier",
+  "clearance": 0,
+  "garage_cost": 75,
+  "unlock_zone": "registers"
+}

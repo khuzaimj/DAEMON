@@ -1,0 +1,9 @@
+{
+  "id": "ram",
+  "kind": "charge_dash",
+  "heat_cost": 25,
+  "cooldown": 1.4,
+  "windup": 0.25,
+  "params": { "distance": 5.0, "speed": 11.0, "damage": 3, "knockback": 2.0, "breaks": ["ram"] },
+  "sfx": "ram"
+}

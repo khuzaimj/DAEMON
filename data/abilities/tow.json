@@ -1,0 +1,9 @@
+{
+  "id": "tow",
+  "kind": "tow",
+  "heat_cost": 15,
+  "cooldown": 0.5,
+  "windup": 0.0,
+  "params": { "max_weight": 1 },
+  "sfx": "tow"
+}

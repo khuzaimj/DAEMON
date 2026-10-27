@@ -1,0 +1,19 @@
+{
+  "id": "crawler",
+  "name": "Crawler",
+  "size": "S",
+  "weight": 1,
+  "medium": ["ground"],
+  "speed": 4.0,
+  "integrity": 5,
+  "heat_max": 100,
+  "heat_cooldown": 20,
+  "primary": "claw",
+  "secondary": "cling",
+  "passives": ["insulated"],
+  "tags": ["scout", "machine"],
+  "sprite": "crawler",
+  "clearance": 0,
+  "garage_cost": 70,
+  "unlock_zone": "registers"
+}

@@ -1,0 +1,9 @@
+{
+  "id": "parcel",
+  "kind": "throw_parcel",
+  "heat_cost": 20,
+  "cooldown": 0.8,
+  "windup": 0.15,
+  "params": { "speed": 10.0, "range": 5.0, "damage": 2 },
+  "sfx": "parcel"
+}
