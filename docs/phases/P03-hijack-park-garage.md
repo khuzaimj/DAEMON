@@ -101,3 +101,22 @@ Per project workflow, **P3.1 (`src/core/hijack_fsm.gd`) and its accompanying GUT
 
 ## Questions for the User
 1. **Argon Delivery**: Please provide Argon's `src/core/hijack_fsm.gd` and its unit tests when saying "go" to begin Task P3.1. *(Recommended: Yes, provide when ready to start P3.1).*
+
+---
+
+# P03 — Hijack, Park, Garage · Report
+Done: P3.1–P3.7 · Commits: 8 (`8ebb742`..`3fdcc3f`) · Tests: 74 passing / 573 asserts · check.ps1 -Full: green
+Evidence:
+- `tests/scenario/test_hijack_lab_scenarios.gd`: 5/5 passing acceptance scenarios (a through e)
+- `shots/debug_07.png`: Hijack Lab fundamentals (tutorial hijack, weaken/seize, plate/door holding)
+- `shots/debug_08.png`: Hijack Lab advanced (welder cutting weld seam on REPEAT, node disabling firewall)
+- `build/Daemon.exe`: Frozen binary built with embedded PCK, smoke tested clean
+Deviations from the plan: None. All 3 user guardrails (ESC handling, timescale cleanup, plate/door linking) satisfied.
+Known issues: None
+Playtest:
+- Run: `& build/Daemon.exe -- --room debug_07`
+- Press Space (`hop`) to aim slow-mo (0.25 timescale); select dormant Janitor and press Space to seize.
+- Hold Space (`eject`) for 0.5s to voluntary eject back to Cursor.
+- Press `Q` to cycle parked routines (HOLD -> GUARD -> PATROL -> REPEAT).
+- Warp to `debug_08` (`F6`), pilot maintenance Node to disable Firewall, then hop into vault courier.
+Ask: accept, or changes?
