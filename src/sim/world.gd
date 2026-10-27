@@ -316,8 +316,11 @@ func _step_hijack(delta: float) -> void:
 		hijack_fsm.step_transit(delta, firewall_hit)
 		return
 
-	# Cursor TTL stepping
+	# Cursor TTL stepping and crash check
 	if hijack_fsm.state == HijackFSM.State.CURSOR:
+		if player_machine != null and player_machine.state != null and player_machine.state.is_crashed:
+			hijack_fsm.reboot_triggered.emit("cursor_destroyed")
+			return
 		var is_safe: bool = is_pos_in_safe_zone(player_machine.position)
 		hijack_fsm.step_cursor_ttl(is_safe, 1)
 
@@ -375,8 +378,26 @@ func _on_node_seized(_node_id: String) -> void:
 func _on_node_exited(_node_id: String) -> void:
 	pass
 
-func _on_reboot_triggered(_reason: String) -> void:
-	load_room(current_room_id)
+func _on_reboot_triggered(reason: String) -> void:
+	var events_node: Node = get_node_or_null("/root/Events")
+	if events_node != null:
+		events_node.emit_signal("reboot_triggered", reason)
+
+	var game_node: Node = get_node_or_null("/root/Game")
+	var target_room: String = current_room_id
+	var has_dock: bool = false
+	var dock_pos: Vector2 = Vector2.ZERO
+	if game_node != null:
+		var last_dock: String = str(game_node.get("last_dock_room_id"))
+		if not last_dock.is_empty():
+			target_room = last_dock
+			has_dock = true
+			dock_pos = game_node.get("last_dock_spawn_pos") as Vector2
+
+	load_room(target_room)
+	if has_dock and dock_pos != Vector2.ZERO and player_machine != null:
+		player_machine.position = dock_pos
+	hijack_fsm.refill_ttl()
 
 func _get_hijack_candidates(origin_pos: Vector2) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
@@ -436,6 +457,13 @@ func is_pos_in_safe_zone(pixel_pos: Vector2) -> bool:
 		if Grid.is_in_room_bounds(cell) and cell.y < active_room.grid.size() and cell.x < active_room.grid[cell.y].length():
 			var glyph: String = active_room.grid[cell.y][cell.x]
 			if glyph == ":":
+				return true
+	if is_inside_tree() and player_machine != null:
+		for dock: Node in get_tree().get_nodes_in_group("docks"):
+			if dock is Area2D and (dock as Area2D).overlaps_body(player_machine):
+				return true
+		for inf_node: Node in get_tree().get_nodes_in_group("infrastructure_nodes"):
+			if inf_node is Area2D and (inf_node as Area2D).overlaps_body(player_machine):
 				return true
 	return false
 
