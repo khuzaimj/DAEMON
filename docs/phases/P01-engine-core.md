@@ -96,3 +96,22 @@
 
 ## Questions for the user
 1. **Launch Routing:** Default to `debug_01` when run without `--room`, support `--room <id>` override, support `--smoke`. *(Approved: Yes)*
+
+---
+
+# P01 — Engine Core · Report
+Done: P1.1 Autoloads; P1.2 Input Router; P1.3 Pure Core Classes; P1.4 Room Loader & Runtime; P1.5 Machine, Controllers & Movement; P1.6 World Node & Room Transitions; P1.7 Debug Tools & Profiling · Commits: 6 · Tests: 15 passing (91 asserts, 0 orphans) · check.ps1 -Full: green
+Evidence:
+- Tests: `tests/unit/test_perf_budget.gd`, `tests/scenario/test_room_traversal.gd`, `tests/scenario/test_movement_and_gaps.gd`
+- Profiling: avg=0.019 ms / max=0.059 ms per tick (budget: <= 4.0 ms)
+- Visual renders: `shots/debug_01.png`, `shots/debug_02.png`, `shots/debug_03.png`, `shots/debug_04.png`
+- Binary export: `build/Daemon.exe` verified with frozen smoke test
+Deviations from the plan: None
+Known issues: None
+Playtest:
+- Run: `& build/Daemon.exe` (or `& $godot --path . --room debug_01`)
+- Controls: Arrow keys / WASD to move Cursor (XS body)
+- Walk East in `debug_01` to trigger 0.3s sliding room transition to `debug_02`
+- Press F2 (collision overlay), F3 (FPS/sim ms overlay), F6 (warp prompt), F10 (input recorder toggle to `user://input_record.json`), ESC to quit
+Ask: accept, or changes?
+
