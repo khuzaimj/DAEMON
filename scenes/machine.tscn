@@ -2,17 +2,35 @@
 
 [ext_resource type="Script" path="res://src/sim/machine.gd" id="1_machine"]
 [ext_resource type="Script" path="res://src/sim/controllers/player_controller.gd" id="2_player_ctrl"]
+[ext_resource type="Script" path="res://src/sim/abilities_runner.gd" id="3_abilities"]
 
 [sub_resource type="RectangleShape2D" id="RectangleShape2D_8px"]
 size = Vector2(8, 8)
 
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_hurt"]
+size = Vector2(8, 8)
+
 [node name="Machine" type="CharacterBody2D"]
 collision_layer = 4
-collision_mask = 13
+collision_mask = 525
 script = ExtResource("1_machine")
 
 [node name="Collider" type="CollisionShape2D" parent="."]
 shape = SubResource("RectangleShape2D_8px")
+
+[node name="Sprite" type="AnimatedSprite2D" parent="."]
+
+[node name="Glow" type="AnimatedSprite2D" parent="."]
+
+[node name="HurtBox" type="Area2D" parent="."]
+collision_layer = 32
+collision_mask = 272
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="HurtBox"]
+shape = SubResource("RectangleShape2D_hurt")
+
+[node name="Abilities" type="Node" parent="."]
+script = ExtResource("3_abilities")
 
 [node name="PlaceholderVisual" type="ColorRect" parent="."]
 offset_left = -4.0

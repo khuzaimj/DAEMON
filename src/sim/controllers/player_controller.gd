@@ -1,7 +1,7 @@
 class_name PlayerController
 extends Controller
 
-func decide(_machine: Node2D, _tick: int) -> Intent:
+func decide(_machine: Machine, _tick: int) -> Intent:
 	var router: Node = get_node_or_null("/root/InputRouter")
 	if router == null:
 		return Intent.new()

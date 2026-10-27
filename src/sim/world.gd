@@ -70,7 +70,8 @@ func _physics_process(delta: float) -> void:
 	# System 2: controllers
 	_step_controllers(tick_count)
 	# System 3: hijack (P3)
-	# System 4: abilities (P4)
+	# System 4: abilities
+	_step_abilities(tick_count)
 	# System 5: movement
 	_step_movement(delta)
 	# System 6: logic (P5)
@@ -161,6 +162,11 @@ func _step_controllers(tick: int) -> void:
 	for m: Machine in machines:
 		if is_instance_valid(m):
 			m.step_controller(tick)
+
+func _step_abilities(tick: int) -> void:
+	for m: Machine in machines:
+		if is_instance_valid(m):
+			m.step_abilities(tick)
 
 func _step_movement(delta: float) -> void:
 	for m: Machine in machines:
