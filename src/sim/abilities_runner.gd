@@ -127,6 +127,12 @@ func _execute_ability(slot_name: String, slot: Dictionary, data: Dictionary, dir
 			RangedAbilities.start_harpoon(machine, data, dir)
 		"throw_parcel":
 			RangedAbilities.start_throw_parcel(machine, data, dir)
+		"flame_cone":
+			ChannelledAbilities.start_flame_cone(machine, data, dir)
+		"beam_channel":
+			ChannelledAbilities.start_beam_channel(machine, data, dir)
+		"repair_beam":
+			ChannelledAbilities.start_repair_beam(machine, data, dir)
 	
 	ability_triggered.emit(slot_name, str(slot["id"]), kind, dir)
 
