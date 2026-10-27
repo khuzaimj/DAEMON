@@ -110,3 +110,20 @@
 ## Questions for the user
 1. **Ability Visual Placeholders:** Procedural 2D canvas draw calls with palette colors before P7 art baking? — *Approved: Yes.*
 2. **F8 Body Cycling:** Cycle player machine through all 10 bodies in exact §1.3 table order? — *Approved: Yes.*
+
+# P02 — Machines, Bodies, Abilities · Report
+Done: P2.1, P2.2, P2.3, P2.4a, P2.4b, P2.4c, P2.4d, P2.4e, P2.5 · Commits: 8 · Tests: 40 passing (348 asserts) · check.ps1 -Full: green
+Evidence:
+- `tools/validate_data.gd`: 41 JSON files verified (10 bodies, 19 abilities, enemies, AI, sizes, tiles, zones), 6 rooms verified with Validator v1 (0 errors).
+- `tests/`: 18 test scripts, 40 tests, 348 assertions, 0 failures, 0 orphans.
+- Performance: 60 FPS, average simulation tick 0.028 ms (budget <= 4.0 ms).
+- Exported Windows executable: `build/Daemon.exe` (clean build and frozen smoke test passed).
+- Screenshots: `shots/debug_05.png`, `shots/debug_06.png`.
+Deviations from the plan: none
+Known issues: none
+Playtest:
+1. Run `& build/Daemon.exe --room debug_05`
+2. Press F8 to cycle player body across all 10 bodies (Cursor -> Janitor -> Loader -> Sentry -> Drone -> Welder -> Diver -> Crawler -> Courier -> Medic) and observe HUD updates (BODY, HP, HEAT, SIZE).
+3. Test primary (J) and secondary (K) abilities: Janitor Sweep clears grime `,` tiles; Loader Ram breaks cracked walls `X`; Welder Torch cuts weld seams `%`.
+4. Test passives: Diver navigates coolant `~` without heat penalty; Drone hovers over pits `o`; Crawler ignores spikes `^`.
+Ask: accept, or changes?
