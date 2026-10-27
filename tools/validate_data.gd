@@ -8,7 +8,7 @@ func _init() -> void:
 	var error_count: int = 0
 	var json_files: Array[String] = _get_files_recursive("res://data", [".json"])
 
-	# 1. Check all JSON files parse cleanly
+	# 1. Parse all JSON files
 	var parsed_data: Dictionary = {}
 	for path: String in json_files:
 		var file: FileAccess = FileAccess.open(path, FileAccess.READ)
@@ -26,7 +26,22 @@ func _init() -> void:
 			parsed_data[path] = json.data
 			print("validate_data: OK " + path)
 
-	# 2. Extract valid glyphs from data/tiles.json
+	# 2. Validate sizes.json
+	var known_sizes: Array[String] = []
+	if parsed_data.has("res://data/sizes.json"):
+		var sizes_dict: Dictionary = parsed_data["res://data/sizes.json"] as Dictionary
+		var size_errors: Array[String] = Schema.validate_sizes(sizes_dict, "res://data/sizes.json")
+		for err_msg: String in size_errors:
+			printerr("ERROR: " + err_msg)
+			error_count += 1
+		var sizes_map: Dictionary = sizes_dict.get("sizes", {})
+		for s_key: Variant in sizes_map.keys():
+			known_sizes.append(str(s_key).to_lower())
+	else:
+		printerr("ERROR: res://data/sizes.json not found")
+		error_count += 1
+
+	# 3. Validate tiles.json and extract glyphs
 	var known_glyphs: Array[String] = []
 	if parsed_data.has("res://data/tiles.json"):
 		var tiles_root: Dictionary = parsed_data["res://data/tiles.json"] as Dictionary
@@ -37,7 +52,82 @@ func _init() -> void:
 		printerr("ERROR: res://data/tiles.json not found")
 		error_count += 1
 
-	# 3. Collect and validate all room files
+	# 4. Validate abilities (data/abilities/*.json)
+	var known_abilities: Dictionary = {}
+	for path: String in parsed_data.keys():
+		if path.begins_with("res://data/abilities/") and path.ends_with(".json"):
+			var ab_data: Dictionary = parsed_data[path] as Dictionary
+			var ab_errors: Array[String] = Schema.validate_ability(ab_data, path)
+			for err_msg: String in ab_errors:
+				printerr("ERROR: " + err_msg)
+				error_count += 1
+			var ab_id: String = str(ab_data.get("id", ""))
+			if not ab_id.is_empty():
+				known_abilities[ab_id] = ab_data
+
+	# 5. Validate bodies (data/bodies/*.json)
+	var known_bodies: Dictionary = {}
+	for path: String in parsed_data.keys():
+		if path.begins_with("res://data/bodies/") and path.ends_with(".json"):
+			var body_data: Dictionary = parsed_data[path] as Dictionary
+			var body_errors: Array[String] = Schema.validate_body(body_data, path)
+			for err_msg: String in body_errors:
+				printerr("ERROR: " + err_msg)
+				error_count += 1
+			var b_id: String = str(body_data.get("id", ""))
+			if not b_id.is_empty():
+				known_bodies[b_id] = body_data
+
+			# Size class check
+			var size_val: String = str(body_data.get("size", "")).to_lower()
+			if not known_sizes.has(size_val):
+				printerr("ERROR: Body %s size '%s' not found in sizes.json" % [b_id, size_val])
+				error_count += 1
+
+			# Cross-reference abilities if abilities are loaded
+			if known_abilities.size() > 0:
+				var pri: String = str(body_data.get("primary", ""))
+				if not pri.is_empty() and not known_abilities.has(pri):
+					printerr("ERROR: Body %s primary ability '%s' not found in data/abilities/" % [b_id, pri])
+					error_count += 1
+				var sec: String = str(body_data.get("secondary", ""))
+				if not sec.is_empty() and not known_abilities.has(sec):
+					printerr("ERROR: Body %s secondary ability '%s' not found in data/abilities/" % [b_id, sec])
+					error_count += 1
+
+	# 6. Validate AI presets (data/ai/*.json)
+	var known_ai: Dictionary = {}
+	for path: String in parsed_data.keys():
+		if path.begins_with("res://data/ai/") and path.ends_with(".json"):
+			var ai_data: Dictionary = parsed_data[path] as Dictionary
+			var ai_errors: Array[String] = Schema.validate_ai_preset(ai_data, path)
+			for err_msg: String in ai_errors:
+				printerr("ERROR: " + err_msg)
+				error_count += 1
+			var ai_id: String = str(ai_data.get("id", ""))
+			if not ai_id.is_empty():
+				known_ai[ai_id] = ai_data
+
+	# 7. Validate enemies (data/enemies/*.json)
+	for path: String in parsed_data.keys():
+		if path.begins_with("res://data/enemies/") and path.ends_with(".json"):
+			var enemy_data: Dictionary = parsed_data[path] as Dictionary
+			var enemy_errors: Array[String] = Schema.validate_enemy(enemy_data, path)
+			for err_msg: String in enemy_errors:
+				printerr("ERROR: " + err_msg)
+				error_count += 1
+			var enemy_id: String = str(enemy_data.get("id", ""))
+			var ref_body: String = str(enemy_data.get("body", ""))
+			var ref_ai: String = str(enemy_data.get("ai", ""))
+
+			if known_bodies.size() > 0 and not known_bodies.has(ref_body):
+				printerr("ERROR: Enemy %s references non-existent body '%s'" % [enemy_id, ref_body])
+				error_count += 1
+			if known_ai.size() > 0 and not known_ai.has(ref_ai):
+				printerr("ERROR: Enemy %s references non-existent AI '%s'" % [enemy_id, ref_ai])
+				error_count += 1
+
+	# 8. Collect and validate all room files
 	var rooms_by_id: Dictionary = {}
 	var room_paths: Dictionary = {}
 	for path: String in parsed_data.keys():
@@ -99,7 +189,7 @@ func _init() -> void:
 					printerr("ERROR: Room %s has open East border at row %d but no 'e' exit declared" % [room_id, y])
 					error_count += 1
 
-	# 4. Validate neighbor exits match reciprocally
+	# 9. Validate neighbor exits match reciprocally
 	var opp_dirs: Dictionary = { "n": "s", "s": "n", "e": "w", "w": "e" }
 	for room_id: String in rooms_by_id:
 		var room: Dictionary = rooms_by_id[room_id]
@@ -156,7 +246,7 @@ func _init() -> void:
 		printerr("validate_data: failed with %d errors" % error_count)
 		quit(1)
 	else:
-		print("validate_data: OK (%d JSON files verified, %d rooms verified with Validator v0)" % [json_files.size(), rooms_by_id.size()])
+		print("validate_data: OK (%d JSON files verified, %d rooms verified with Validator v1)" % [json_files.size(), rooms_by_id.size()])
 		quit(0)
 
 func _get_files_recursive(dir_path: String, extensions: Array[String]) -> Array[String]:

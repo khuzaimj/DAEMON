@@ -1,0 +1,11 @@
+{
+  "id": "rogue_janitor",
+  "body": "janitor",
+  "faction": "hostile",
+  "integrity": 5,
+  "ai": "melee_swarmer",
+  "senses": { "vision": 6.0, "hearing": 4.0 },
+  "open_threshold": 0.35,
+  "drops": { "scrap": [1, 3] },
+  "palette_variant": "hostile"
+}
