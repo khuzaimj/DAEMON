@@ -15,6 +15,13 @@ var current_intent: Intent = Intent.new()
 var state: BodyState = BodyState.new()
 var facing: Vector2 = Vector2.DOWN
 
+var is_dashing: bool = false
+var dash_direction: Vector2 = Vector2.ZERO
+var dash_speed_px: float = 0.0
+var dash_ticks_left: int = 0
+var dash_breaks_cracked: bool = false
+var dash_bypasses_pit: bool = false
+
 @onready var collider: CollisionShape2D = $Collider
 @onready var sprite: AnimatedSprite2D = $Sprite
 @onready var glow: AnimatedSprite2D = $Glow
@@ -163,10 +170,78 @@ func step_abilities(tick: int) -> void:
 	if abilities != null:
 		abilities.step(tick, current_intent)
 
+func start_dash(dir: Vector2, speed_px: float, ticks: int, breaks_cracked: bool, bypasses_pit: bool, grant_invuln: bool) -> void:
+	is_dashing = true
+	dash_direction = dir
+	dash_speed_px = speed_px
+	dash_ticks_left = ticks
+	dash_breaks_cracked = breaks_cracked
+	dash_bypasses_pit = bypasses_pit
+	if grant_invuln and state != null:
+		state.invulnerability_ticks = maxi(state.invulnerability_ticks, ticks)
+	if bypasses_pit:
+		collision_mask &= ~(1 << (10 - 1)) # Clear pit mask (layer 10)
+
+func _end_dash() -> void:
+	is_dashing = false
+	dash_ticks_left = 0
+	if dash_bypasses_pit and not mediums.has("hover"):
+		collision_mask |= (1 << (10 - 1)) # Restore pit mask
+		if current_room != null:
+			var t: Dictionary = current_room.terrain_at(global_position)
+			if str(t.get("medium", "")) == "void":
+				# Machine ended dash over void: falls/crashes
+				state.take_damage(state.current_integrity, "void", true)
+
+func _handle_slide_collision(col: KinematicCollision2D, delta: float) -> void:
+	if col == null:
+		return
+	var collider_obj: Object = col.get_collider()
+	if collider_obj == null:
+		return
+	var normal: Vector2 = col.get_normal()
+	var push_dir: Vector2 = -normal
+
+	if collider_obj is Machine:
+		var target_machine: Machine = collider_obj as Machine
+		if self.weight > target_machine.weight:
+			var push_amt: Vector2 = push_dir * (self.velocity.length() * delta)
+			target_machine.move_and_collide(push_amt)
+	elif collider_obj is CharacterBody2D:
+		var target_weight: int = int(collider_obj.get("weight"))
+		if self.weight >= target_weight and self.weight > 0:
+			var push_amt: Vector2 = push_dir * (self.velocity.length() * delta)
+			(collider_obj as CharacterBody2D).move_and_collide(push_amt)
+
+	if dash_breaks_cracked and current_room != null:
+		var hit_pos: Vector2 = col.get_position() - normal * 4.0
+		if current_room.has_method("break_tile_at"):
+			current_room.call("break_tile_at", hit_pos, "ram")
+
 ## Called once per tick by World movement system
 func step_movement(delta: float) -> void:
 	if not state.can_act():
+		if is_dashing:
+			_end_dash()
 		velocity = Vector2.ZERO
+		return
+
+	if is_dashing:
+		dash_ticks_left -= 1
+		velocity = dash_direction * dash_speed_px
+		if Engine.is_in_physics_frame():
+			move_and_slide()
+			for i: int in range(get_slide_collision_count()):
+				_handle_slide_collision(get_slide_collision(i), delta)
+		else:
+			var motion: Vector2 = velocity * delta
+			var col: KinematicCollision2D = move_and_collide(motion)
+			if col != null:
+				_handle_slide_collision(col, delta)
+				var remainder: Vector2 = col.get_remainder().slide(col.get_normal())
+				move_and_collide(remainder)
+		if dash_ticks_left <= 0:
+			_end_dash()
 		return
 
 	if base_speed_tiles <= 0.0:
@@ -186,9 +261,12 @@ func step_movement(delta: float) -> void:
 	velocity = current_intent.move * speed_px
 	if Engine.is_in_physics_frame():
 		move_and_slide()
+		for i: int in range(get_slide_collision_count()):
+			_handle_slide_collision(get_slide_collision(i), delta)
 	else:
 		var motion: Vector2 = velocity * delta
 		var col: KinematicCollision2D = move_and_collide(motion)
 		if col != null:
+			_handle_slide_collision(col, delta)
 			var remainder: Vector2 = col.get_remainder().slide(col.get_normal())
 			move_and_collide(remainder)

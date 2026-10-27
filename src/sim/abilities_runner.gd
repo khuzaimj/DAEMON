@@ -104,6 +104,14 @@ func _execute_ability(slot_name: String, slot: Dictionary, data: Dictionary, dir
 	var cd_ticks: int = AbilityMath.seconds_to_ticks(cd_sec)
 	machine.state.set_cooldown(slot_name, cd_ticks)
 	
+	match kind:
+		"charge_dash":
+			MovementAbilities.start_charge_dash(machine, data, dir)
+		"dash":
+			MovementAbilities.start_dash(machine, data, dir)
+		"cling":
+			MovementAbilities.start_cling(machine, data, dir)
+	
 	ability_triggered.emit(slot_name, str(slot["id"]), kind, dir)
 
 func _step_slot(slot_name: String, slot: Dictionary, data: Dictionary, _held: bool) -> void:
