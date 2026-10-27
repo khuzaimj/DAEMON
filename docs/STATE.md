@@ -1,6 +1,7 @@
-Phase: P00 Rails (approved 2026-10-27)   Status: awaiting accept
-Last task: P0.6 Build and export verification (commit 3a5246f)
-Next task: P01 Engine core
-Open questions: None
+Phase: P01 Engine core (briefed 2026-10-27)   Status: awaiting go
+Last task: P00 accepted (tag p00-accepted)
+Next task: P1.1 Autoloads (Events, Data, Game)
+Open questions:
+- Launch Routing: default to debug_01, override with --room <id>?
 Run it: & build/Daemon.exe --quit-after 180 -- --smoke
 Known issues: None
