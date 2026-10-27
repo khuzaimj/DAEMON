@@ -3,11 +3,13 @@
 [ext_resource type="Script" path="res://src/sim/world.gd" id="1_world"]
 
 [node name="World" type="Node2D"]
+y_sort_enabled = true
 script = ExtResource("1_world")
 
 [node name="RoomContainer" type="Node2D" parent="."]
 
 [node name="Entities" type="Node2D" parent="."]
+y_sort_enabled = true
 
 [node name="HUD" type="Control" parent="."]
 layout_mode = 3

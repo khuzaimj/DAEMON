@@ -2,24 +2,18 @@ extends GutTest
 
 func test_size_and_conduit_rules() -> void:
 	# Build test room:
-	# Col 4 (x=64..80): 1-tile conduit path:
-	#   Row 1: '.' floor (y=16..32)
-	#   Row 2: ':' conduit (y=32..48)
-	#   Row 3: ':' conduit (y=48..64)
-	#   Row 4: '.' floor (y=64..80)
-	# Col 8 (x=128..144): 1-tile gap path:
-	#   Row 1: '.' floor (y=16..32)
-	#   Row 2: '.' 1-tile gap (y=32..48), flanked by walls '#' at col 7 and col 9
-	#   Row 3: '.' 1-tile gap (y=48..64)
-	#   Row 4: '.' floor (y=64..80)
+	# Col 4 (x=64..80): 1-tile conduit path (':')
+	# Col 8 (x=128..144): 1-tile gap path ('.' flanked by '#')
+	# Col 12 (x=192..208): 1-tile pit path ('o' void medium)
+	# Col 16 (x=256..272): 1-tile pit path ('o' void medium) for hover test
 	var room_def: Dictionary = {
 		"id": "gap_test",
 		"cell": [0, 0],
 		"grid": [
 			"##############################", # Row 0
 			"#............................#", # Row 1: open corridor
-			"####:###.#####################", # Row 2: col 4 is ':', col 8 is '.' (1-tile gap)
-			"####:###.#####################", # Row 3: col 4 is ':', col 8 is '.'
+			"####:###.###o###o#############", # Row 2: col 4 ':', col 8 '.', col 12 'o', col 16 'o'
+			"####:###.###o###o#############", # Row 3: col 4 ':', col 8 '.', col 12 'o', col 16 'o'
 			"#............................#", # Row 4: open corridor
 			"#............................#",
 			"#............................#",
@@ -100,3 +94,37 @@ func test_size_and_conduit_rules() -> void:
 		l_machine.step_movement(1.0 / 60.0)
 
 	assert_lt(l_machine.position.y, 32.0, "L machine (24px) must be blocked by 1-tile gap (16px)")
+
+	# 5. Ground machine at col 12 center (x=200, y=24) moving down towards pit ('o', void)
+	var ground_pit_machine: Machine = load("res://scenes/machine.tscn").instantiate() as Machine
+	ground_pit_machine.size_class = "xs"
+	ground_pit_machine.mediums = ["ground"]
+	ground_pit_machine.position = Vector2(200, 24)
+	add_child_autofree(ground_pit_machine)
+	ground_pit_machine.current_room = runtime
+	var ground_pit_ctrl: ScriptController = autofree(ScriptController.new()) as ScriptController
+	ground_pit_ctrl.queue_move(Vector2(0, 1), 30)
+	ground_pit_machine.controller = ground_pit_ctrl
+
+	for t: int in range(30):
+		ground_pit_machine.step_controller(t)
+		ground_pit_machine.step_movement(1.0 / 60.0)
+
+	assert_lt(ground_pit_machine.position.y, 32.0, "Ground machine must be blocked by pit ('o')")
+
+	# 6. Hover machine at col 16 center (x=264, y=24) moving down over pit ('o', void)
+	var hover_pit_machine: Machine = load("res://scenes/machine.tscn").instantiate() as Machine
+	hover_pit_machine.size_class = "xs"
+	hover_pit_machine.mediums = ["hover"]
+	hover_pit_machine.position = Vector2(264, 24)
+	add_child_autofree(hover_pit_machine)
+	hover_pit_machine.current_room = runtime
+	var hover_pit_ctrl: ScriptController = autofree(ScriptController.new()) as ScriptController
+	hover_pit_ctrl.queue_move(Vector2(0, 1), 30)
+	hover_pit_machine.controller = hover_pit_ctrl
+
+	for t: int in range(30):
+		hover_pit_machine.step_controller(t)
+		hover_pit_machine.step_movement(1.0 / 60.0)
+
+	assert_gt(hover_pit_machine.position.y, 60.0, "Hover machine must pass over pit ('o')")

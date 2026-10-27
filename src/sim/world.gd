@@ -42,6 +42,15 @@ func _ready() -> void:
 		warp_input.text_submitted.connect(_on_warp_submitted)
 
 func _physics_process(delta: float) -> void:
+	# 1. Sample manual player input via InputRouter (zero out if warp dialog is open)
+	var input_router: Node = get_node_or_null("/root/InputRouter")
+	if input_router != null:
+		if warp_dialog != null and warp_dialog.visible:
+			if input_router.has_method("reset_input"):
+				input_router.call("reset_input")
+		elif input_router.has_method("sample_input"):
+			input_router.call("sample_input")
+
 	if is_transitioning:
 		_step_transition(delta)
 		return
@@ -51,7 +60,11 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var t0: int = Time.get_ticks_usec()
-	tick_count += 1
+	if game_node != null and game_node.has_method("advance_tick"):
+		game_node.call("advance_tick")
+		tick_count = int(game_node.get("tick"))
+	else:
+		tick_count += 1
 
 	# System 1: senses (P3+)
 	# System 2: controllers
@@ -197,6 +210,14 @@ func start_transition(next_room_id: String, dir: Vector2) -> void:
 	transition_time = 0.0
 	transition_dir = dir
 
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node != null:
+		game_node.set("is_transitioning", true)
+
+	var events_node: Node = get_node_or_null("/root/Events")
+	if events_node != null:
+		events_node.emit_signal("room_transition_started", current_room_id, next_room_id, Vector2i(int(dir.x), int(dir.y)))
+
 	# Calculate machine slide positions across screen border
 	machine_slide_start = player_machine.position
 	machine_slide_target = machine_slide_start - (dir * ROOM_PIXEL_SIZE)
@@ -242,6 +263,15 @@ func _finish_transition() -> void:
 		player_machine.current_room = active_room
 
 	is_transitioning = false
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node != null:
+		game_node.set("is_transitioning", false)
+		game_node.set("current_room_id", current_room_id)
+
+	var events_node: Node = get_node_or_null("/root/Events")
+	if events_node != null:
+		events_node.emit_signal("room_transition_finished", current_room_id)
+
 	_update_hud()
 	room_entered.emit(current_room_id)
 
@@ -273,6 +303,15 @@ func load_room(room_id: String) -> void:
 
 	_setup_player_machine(data)
 	_update_hud()
+
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node != null:
+		game_node.set("current_room_id", current_room_id)
+
+	var events_node: Node = get_node_or_null("/root/Events")
+	if events_node != null:
+		events_node.emit_signal("room_transition_finished", current_room_id)
+
 	room_entered.emit(current_room_id)
 
 func _setup_player_machine(room_data: Dictionary) -> void:

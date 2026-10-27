@@ -100,18 +100,19 @@
 ---
 
 # P01 — Engine Core · Report
-Done: P1.1 Autoloads; P1.2 Input Router; P1.3 Pure Core Classes; P1.4 Room Loader & Runtime; P1.5 Machine, Controllers & Movement; P1.6 World Node & Room Transitions; P1.7 Debug Tools & Profiling · Commits: 6 · Tests: 15 passing (91 asserts, 0 orphans) · check.ps1 -Full: green
+Done: P1.1 Autoloads; P1.2 Input Router (joypad buttons/motion, right-stick aim); P1.3 Pure Core Classes; P1.4 Room Loader & Runtime (visual TileMapLayer, Validator v0); P1.5 Machine, Controllers & Movement (void/pit layer 10); P1.6 World Node & Room Transitions (Game/Events sync); P1.7 Debug Tools & Profiling · Commits: 8 · Tests: 15 passing (97 asserts, 0 orphans) · check.ps1 -Full: green
 Evidence:
-- Tests: `tests/unit/test_perf_budget.gd`, `tests/scenario/test_room_traversal.gd`, `tests/scenario/test_movement_and_gaps.gd`
-- Profiling: avg=0.019 ms / max=0.059 ms per tick (budget: <= 4.0 ms)
-- Visual renders: `shots/debug_01.png`, `shots/debug_02.png`, `shots/debug_03.png`, `shots/debug_04.png`
+- Tests: `tests/unit/test_perf_budget.gd`, `tests/scenario/test_room_traversal.gd`, `tests/scenario/test_movement_and_gaps.gd`, `tests/unit/test_input_router.gd`
+- Profiling: avg=0.020 ms / max=0.063 ms per tick (budget: <= 4.0 ms)
+- Validation: `tools/validate_data.gd` (Validator v0 verified 30x15 dimensions, glyph set, and reciprocal exit alignment)
+- Visual renders: `shots/debug_01.png` - `debug_04.png` via `tools/shot.gd` (TileMapLayer + y_sort)
 - Binary export: `build/Daemon.exe` verified with frozen smoke test
 Deviations from the plan: None
 Known issues: None
 Playtest:
 - Run: `& build/Daemon.exe` (or `& $godot --path . --room debug_01`)
-- Controls: Arrow keys / WASD to move Cursor (XS body)
+- Controls: Arrow keys / WASD or Gamepad (D-pad/analog stick + right stick aim) to move Cursor
 - Walk East in `debug_01` to trigger 0.3s sliding room transition to `debug_02`
-- Press F2 (collision overlay), F3 (FPS/sim ms overlay), F6 (warp prompt), F10 (input recorder toggle to `user://input_record.json`), ESC to quit
+- Hotkeys: F2 (collision overlay), F3 (perf overlay), F6 (warp prompt, zeroes input), F10 (input recorder toggle to `user://input_record.json`), ESC to quit
 Ask: accept, or changes?
 

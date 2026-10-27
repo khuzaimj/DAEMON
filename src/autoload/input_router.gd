@@ -39,6 +39,8 @@ func _setup_actions_from_data() -> void:
 		if not InputMap.has_action(action_name):
 			InputMap.add_action(action_name)
 		var config: Dictionary = actions[action_name]
+
+		# Keyboard keys
 		var keys: Array = config.get("keys", [])
 		for k: Variant in keys:
 			var key_str: String = str(k)
@@ -48,7 +50,23 @@ func _setup_actions_from_data() -> void:
 				ev.physical_keycode = keycode
 				InputMap.action_add_event(action_name, ev)
 
-## Called once per physics tick by World or autoload
+		# Gamepad buttons
+		var joy_buttons: Array = config.get("joy_buttons", [])
+		for b: Variant in joy_buttons:
+			var btn_ev: InputEventJoypadButton = InputEventJoypadButton.new()
+			btn_ev.button_index = int(b) as JoyButton
+			InputMap.action_add_event(action_name, btn_ev)
+
+		# Gamepad axes
+		var joy_axis_val: Variant = config.get("joy_axis")
+		if joy_axis_val is Dictionary:
+			var axis_dict: Dictionary = joy_axis_val as Dictionary
+			var motion_ev: InputEventJoypadMotion = InputEventJoypadMotion.new()
+			motion_ev.axis = int(axis_dict.get("axis", 0)) as JoyAxis
+			motion_ev.axis_value = float(axis_dict.get("value", 0.0))
+			InputMap.action_add_event(action_name, motion_ev)
+
+## Called once per physics tick by World
 func sample_input() -> void:
 	var move_x: float = Input.get_axis("move_left", "move_right")
 	var move_y: float = Input.get_axis("move_up", "move_down")
@@ -58,7 +76,13 @@ func sample_input() -> void:
 	else:
 		move = raw_move
 
-	if move != Vector2.ZERO:
+	# Right stick aim override (§1.13), falling back to movement direction
+	var r_stick_x: float = Input.get_joy_axis(0, JOY_AXIS_RIGHT_X)
+	var r_stick_y: float = Input.get_joy_axis(0, JOY_AXIS_RIGHT_Y)
+	var r_stick: Vector2 = Vector2(r_stick_x, r_stick_y)
+	if r_stick.length_squared() > 0.04: # 0.2 deadzone
+		aim = r_stick.normalized()
+	elif move != Vector2.ZERO:
 		aim = move.normalized()
 
 	primary = Input.is_action_just_pressed("primary")
@@ -94,3 +118,20 @@ func sample_input() -> void:
 			routine_cycle = true
 		_routine_hold_counter = 0
 		_routine_pinned = false
+
+func reset_input() -> void:
+	move = Vector2.ZERO
+	aim = Vector2.ZERO
+	primary = false
+	secondary = false
+	hop = false
+	eject = false
+	routine_cycle = false
+	pin = false
+	interact = false
+	back = false
+	map_toggle = false
+	_hop_hold_counter = 0
+	_hop_ejected = false
+	_routine_hold_counter = 0
+	_routine_pinned = false

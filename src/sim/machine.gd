@@ -50,6 +50,8 @@ func _apply_size_class() -> void:
 	var mask_flags: int = (1 << (1 - 1)) | (1 << (3 - 1)) | (1 << (4 - 1)) # Layer 1: solid, 3: machines, 4: pushables
 	if size_class.to_lower() != "xs":
 		mask_flags |= (1 << (2 - 1)) # Layer 2: conduit_gate (blocks non-XS)
+	if not mediums.has("hover"):
+		mask_flags |= (1 << (10 - 1)) # Layer 10: pit (blocks non-hovering machines)
 	collision_mask = mask_flags
 
 ## Called once per tick by World system
