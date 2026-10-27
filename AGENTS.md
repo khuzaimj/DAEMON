@@ -1,4 +1,8 @@
-**Project.** DAEMON: a top-down pixel-art action-puzzle Metroidvania for Windows PC. The player is a daemon (a background process) that hijacks machines; each machine body is an ability. Spec §1, architecture §2, roadmap §3.
+## 0. Quick Start
+
+Copy this section verbatim into `AGENTS.md` and `.agents/rules/daemon.md`.
+
+**Project.** DAEMON: a top-down pixel-art action-puzzle Metroidvania for Windows PC. The player is a daemon (a background process) that hijacks machines; each machine body is an ability. Spec §1 (`docs/SPEC.md`), architecture §2 (`docs/ARCH.md`), roadmap §3 (`docs/PLAN.md`).
 
 **Stack.** Godot 4.7.x (standard, non-.NET build; the latest stable at project start, check godotengine.org/download; record the exact version in `docs/DECISIONS.md` and never upgrade mid-project without asking). GDScript with static typing. GL Compatibility renderer. Content data in JSON. Art as PNG pixel art. Audio as WAV baked from recipes. Tests with GUT (approved addon). Export: Windows Desktop with embedded PCK. Run Godot from PowerShell through the `GODOT` environment variable, which points at the console build (`..._win64_console.exe`) so output is captured.
 
