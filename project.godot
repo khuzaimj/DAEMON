@@ -22,6 +22,7 @@ Events="*res://src/autoload/events.gd"
 Data="*res://src/autoload/data.gd"
 Game="*res://src/autoload/game.gd"
 InputRouter="*res://src/autoload/input_router.gd"
+SaveSystem="*res://src/autoload/save_system.gd"
 
 [display]
 

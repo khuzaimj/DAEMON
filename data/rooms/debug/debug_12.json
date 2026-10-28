@@ -1,0 +1,39 @@
+{
+  "id": "debug_12",
+  "zone": "debug",
+  "cell": [3, 4],
+  "exits": {
+    "w": "debug_11"
+  },
+  "grid": [
+    "##############################",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    ".............................#",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "##############################"
+  ],
+  "entities": [
+    { "id": "spawn", "kind": "spawn_cursor", "at": [4, 7] },
+    { "id": "dock_debug_12", "kind": "dock", "at": [6, 7] },
+    { "id": "chip_link", "kind": "progression_pickup", "pickup_kind": "link_range", "amount": 1, "at": [12, 3] },
+    { "id": "chip_integrity", "kind": "progression_pickup", "pickup_kind": "integrity_chip", "amount": 1, "at": [14, 3] },
+    { "id": "chip_heat", "kind": "progression_pickup", "pickup_kind": "heat_sink", "amount": 1, "at": [16, 3] },
+    { "id": "chip_ttl", "kind": "progression_pickup", "pickup_kind": "ttl_extender", "amount": 1, "at": [18, 3] },
+    { "id": "chip_slot", "kind": "progression_pickup", "pickup_kind": "garage_slot", "amount": 1, "at": [20, 3] },
+    { "id": "chip_shard", "kind": "progression_pickup", "pickup_kind": "shard", "amount": 1, "at": [22, 3] },
+    { "id": "pass_bus", "kind": "progression_pickup", "pickup_kind": "bus_pass", "amount": 1, "at": [24, 3] },
+    { "id": "key_clearance", "kind": "progression_pickup", "pickup_kind": "clearance", "clearance": 1, "at": [26, 3] },
+    { "id": "terminal_log_12", "kind": "log_pickup", "log_id": "log_debug_overview", "title": "Logic Lab Manual", "text": "All puzzle and persistence systems nominal.", "at": [12, 11] },
+    { "id": "unique_sentry_guard", "kind": "enemy", "enemy_id": "rogue_sentry", "unique": true, "at": [24, 7] }
+  ]
+}

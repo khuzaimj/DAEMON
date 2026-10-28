@@ -60,6 +60,9 @@ func register_entity(id: String, node: Node) -> void:
 	if not id.is_empty() and node != null:
 		logic_entities[id] = node
 
+func get_entity(id: String) -> Node:
+	return logic_entities.get(id) as Node
+
 func unregister_entity(id: String) -> void:
 	logic_entities.erase(id)
 

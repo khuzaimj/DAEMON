@@ -5,5 +5,5 @@
   "tileset": "debug",
   "music": "debug",
   "ambient": { "darkness": 0.0 },
-  "rooms_target": 10
+  "rooms_target": 12
 }

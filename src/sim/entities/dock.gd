@@ -64,6 +64,11 @@ func activate_dock(player_m: Machine) -> void:
 		if events_node != null:
 			events_node.emit_signal("dock_visited", entity_id, game_node.get("current_room_id") if game_node != null else "")
 
+		var save_sys: Node = root.get_node_or_null("SaveSystem")
+		if save_sys != null and save_sys.has_method("save_slot"):
+			var slot: int = int(save_sys.get("current_slot")) if save_sys.get("current_slot") != null else 1
+			save_sys.call("save_slot", slot)
+
 	# Heal and cool host
 	if player_m != null and player_m.state != null:
 		player_m.state.repair(player_m.state.max_integrity)
