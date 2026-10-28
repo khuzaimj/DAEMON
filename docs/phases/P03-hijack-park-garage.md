@@ -105,7 +105,7 @@ Per project workflow, **P3.1 (`src/core/hijack_fsm.gd`) and its accompanying GUT
 ---
 
 # P03 — Hijack, Park, Garage · Report
-Done: P3.1–P3.8 · Commits: 10 · Tests: 76 passing / 590 asserts · check.ps1 -Full: green
+Done: P3.1–P3.8 · Commits: 10 (`8ebb742`..`468a5c4`) · Tests: 76 passing / 590 asserts · check.ps1 -Full: green
 Evidence:
 - `tests/scenario/test_hijack_lab_scenarios.gd`: 5/5 passing acceptance scenarios (a through e)
 - `shots/debug_07.png`: Hijack Lab fundamentals (tutorial hijack, weaken/seize, plate/door holding)
