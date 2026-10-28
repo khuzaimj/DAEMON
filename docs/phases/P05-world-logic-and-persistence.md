@@ -147,8 +147,8 @@
 ---
 
 # P05 — World logic and persistence · Report
-Done: P5.1, P5.2, P5.3, P5.4, P5.5 · Commits: 11 · Tests: 161 passing (1198 asserts) · check.ps1 -Full: green
-Evidence: shots/debug_11.png, shots/debug_12.png, tests/unit/test_save_system.gd (round-trip equality verified)
+Done: P5.1, P5.2, P5.3, P5.4, P5.5, P5 Audit Fixes · Commits: 12 · Tests: 163 passing (1218 asserts) · check.ps1 -Full: green
+Evidence: p05_audit.txt, shots/debug_11.png, shots/debug_12.png, tests/unit/test_save_system.gd, tests/scenario/test_logic_lab.gd
 Deviations from the plan: Pure core SaveData and TerrainRules created in src/core/ per G3 to prevent Godot node file bloat.
 Known issues: none
 Playtest: Run `& build/Daemon.exe -- --room debug_11` to test plates, switches, latches, timers, conveyors, collapsing floors, and clearance doors; navigate east to `debug_12` for progression pickups and dock save/load testing.
