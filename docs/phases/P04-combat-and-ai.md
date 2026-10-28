@@ -101,3 +101,14 @@
    *(Recommended: Yes, author `bootloader.json` with 3 actuator subsystems).*
 2. **Hit-Stop & Screen Shake Defaults**: Default hit-stop duration to 3 frames (50 ms) and screen shake to 2 px with toggle support in settings for accessibility (§1.9, §1.13, §2.8)?
    *(Recommended: Yes, default to 3 frames and 2 px).*
+
+---
+
+# P04 — Combat and AI · Report
+Done: P4.1, P4.2, P4.3, P4.4, P4.5 · Commits: 11 · Tests: 104 passing (801 asserts) · check.ps1 -Full: green
+Evidence: shots/debug_09.png, shots/debug_10.png, tests/unit/test_combat_perf.gd (avg 0.961 ms <= 4.0 ms)
+Deviations from the plan: Modularized systems into src/sim/systems/ (senses_system.gd, combat_system.gd, pathfinding_system.gd) per Arch §2.1.
+Known issues: none
+Playtest: Run `& build/Daemon.exe -- --room debug_09` to test combat against enemy roster and immune units; head east to `debug_10` to battle Bootloader boss by hijacking the 3 actuator subsystems.
+Ask: accept, or changes?
+
