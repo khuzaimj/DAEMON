@@ -1,6 +1,9 @@
 {
   "id": "debug_07",
   "zone": "debug",
+  "rules": {
+    "pause_ttl_until_hijack": true
+  },
   "pause_ttl_until_hijack": true,
   "cell": [1, 3],
   "exits": {

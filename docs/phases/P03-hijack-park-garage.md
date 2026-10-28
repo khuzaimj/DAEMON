@@ -105,7 +105,7 @@ Per project workflow, **P3.1 (`src/core/hijack_fsm.gd`) and its accompanying GUT
 ---
 
 # P03 — Hijack, Park, Garage · Report
-Done: P3.1–P3.7 · Commits: 8 (`8ebb742`..`3fdcc3f`) · Tests: 74 passing / 573 asserts · check.ps1 -Full: green
+Done: P3.1–P3.8 · Commits: 10 · Tests: 76 passing / 590 asserts · check.ps1 -Full: green
 Evidence:
 - `tests/scenario/test_hijack_lab_scenarios.gd`: 5/5 passing acceptance scenarios (a through e)
 - `shots/debug_07.png`: Hijack Lab fundamentals (tutorial hijack, weaken/seize, plate/door holding)
@@ -115,8 +115,9 @@ Deviations from the plan: None. All 3 user guardrails (ESC handling, timescale c
 Known issues: None
 Playtest:
 - Run: `& build/Daemon.exe -- --room debug_07`
-- Press Space (`hop`) to aim slow-mo (0.25 timescale); select dormant Janitor and press Space to seize.
-- Hold Space (`eject`) for 0.5s to voluntary eject back to Cursor.
+- Press `L` (`hop`) to aim slow-mo (0.25 timescale); select dormant Janitor and press `L` to seize.
+- Hold `L` (`eject`) for 0.5s to voluntary eject back to Cursor.
 - Press `Q` to cycle parked routines (HOLD -> GUARD -> PATROL -> REPEAT).
+- Press `E` on Dock to open Garage popup, cycle with Up/Down or `Q`, and press `E` or `J` to fabricate.
 - Warp to `debug_08` (`F6`), pilot maintenance Node to disable Firewall, then hop into vault courier.
 Ask: accept, or changes?

@@ -16,6 +16,7 @@ func test_four_room_traversal() -> void:
 	var visited: Array[String] = ["debug_01"]
 	world.room_entered.connect(func(id: String) -> void:
 		visited.append(id)
+		world.hijack_fsm.refill_ttl()
 	)
 
 	# 1. Walk East from debug_01 to debug_02 (start pos (56, 120), East exit at x >= 480)

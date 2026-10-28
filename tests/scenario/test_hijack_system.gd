@@ -115,3 +115,37 @@ func test_world_voluntary_and_forced_eject() -> void:
 
 	assert_eq(world.hijack_fsm.state, HijackFSM.State.CURSOR, "Overheated host forces eject")
 	assert_eq(world.player_machine.body_id, "cursor")
+
+func test_world_draw_during_targeting_and_transit() -> void:
+	var world_scene: PackedScene = load("res://scenes/world.tscn")
+	var world: World = world_scene.instantiate() as World
+	add_child_autoqfree(world)
+	world.load_room("debug_05")
+
+	var target_scene: PackedScene = load("res://scenes/machine.tscn")
+	var target: Machine = target_scene.instantiate() as Machine
+	target.entity_id = "target_draw"
+	target.body_id = "janitor"
+	target.position = world.player_machine.position + Vector2(32.0, 0.0)
+	target.operational_state = "dormant"
+	world.entities_container.add_child(target)
+	world.register_machine(target)
+
+	var script_ctrl: ScriptController = autofree(ScriptController.new()) as ScriptController
+	world.player_machine.controller = script_ctrl
+
+	# 1. Enter targeting and call _draw()
+	script_ctrl.default_intent.hop = true
+	world._physics_process(1.0 / 60.0)
+	script_ctrl.default_intent.hop = false
+
+	assert_eq(world.hijack_fsm.state, HijackFSM.State.TARGETING)
+	world.notification(CanvasItem.NOTIFICATION_DRAW)
+
+	# 2. Confirm hop to enter transit and call _draw()
+	script_ctrl.default_intent.hop = true
+	world._physics_process(1.0 / 60.0)
+	script_ctrl.default_intent.hop = false
+
+	assert_eq(world.hijack_fsm.state, HijackFSM.State.TRANSIT)
+	world.notification(CanvasItem.NOTIFICATION_DRAW)

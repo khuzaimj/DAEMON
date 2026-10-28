@@ -149,3 +149,96 @@ func test_plate_and_door_link() -> void:
 	assert_true(plate.is_pressed)
 	assert_true(door.is_open, "Plate reaching threshold must open linked door")
 	assert_true(loader.get_meta("is_holding_latch", false), "Holding loader must be tagged is_holding_latch")
+
+	# 3. Loader steps off plate -> plate unpresses, door closes, is_holding_latch cleared
+	loader.position = Vector2(250.0, 250.0)
+	plate.check_weight()
+	assert_false(plate.is_pressed, "Plate must unpress when heavy loader leaves")
+	assert_false(door.is_open, "Door must close when plate unpresses")
+	assert_false(loader.get_meta("is_holding_latch", false), "is_holding_latch must be cleared when stepping off plate")
+
+func test_hopping_from_hosted_machine_into_node_and_ejecting() -> void:
+	var world_scene: PackedScene = load("res://scenes/world.tscn")
+	var world: World = world_scene.instantiate() as World
+	add_child_autoqfree(world)
+	world.load_room("debug_05")
+
+	# Position cursor near dormant Janitor and hop into it first
+	var janitor_scene: PackedScene = load("res://scenes/machine.tscn")
+	var janitor: Machine = janitor_scene.instantiate() as Machine
+	janitor.entity_id = "janitor_host"
+	janitor.body_id = "janitor"
+	janitor.position = Vector2(60.0, 120.0)
+	janitor.operational_state = "dormant"
+	world.entities_container.add_child(janitor)
+	world.register_machine(janitor)
+
+	# Add InfraNode
+	var inode: InfraNode = InfraNode.new()
+	inode.entity_id = "node_pilot_test"
+	inode.position = Vector2(100.0, 120.0)
+	world.entities_container.add_child(inode)
+
+	world.player_machine.position = Vector2(40.0, 120.0)
+	var script_ctrl: ScriptController = autofree(ScriptController.new()) as ScriptController
+	world.player_machine.controller = script_ctrl
+
+	# Hop 1: Cursor -> Janitor
+	script_ctrl.default_intent.hop = true
+	world._physics_process(1.0 / 60.0)
+	script_ctrl.default_intent.hop = false
+
+	assert_eq(world.hijack_fsm.state, HijackFSM.State.TARGETING)
+	assert_eq(world.hijack_fsm.selected_target_id, "janitor_host")
+
+	script_ctrl.default_intent.hop = true
+	world._physics_process(1.0 / 60.0)
+	script_ctrl.default_intent.hop = false
+
+	for _i: int in range(10):
+		world._physics_process(1.0 / 60.0)
+
+	assert_eq(world.hijack_fsm.state, HijackFSM.State.HOSTED)
+	assert_eq(world.player_machine, janitor)
+
+	# Give janitor the script controller for input
+	janitor.controller = script_ctrl
+
+	# Hop 2: Janitor -> InfraNode
+	script_ctrl.default_intent.hop = true
+	world._physics_process(1.0 / 60.0)
+	script_ctrl.default_intent.hop = false
+
+	assert_eq(world.hijack_fsm.state, HijackFSM.State.TARGETING)
+	assert_eq(world.hijack_fsm.selected_target_id, "node_pilot_test")
+
+	script_ctrl.default_intent.hop = true
+	world._physics_process(1.0 / 60.0)
+	script_ctrl.default_intent.hop = false
+
+	for _i: int in range(15):
+		world._physics_process(1.0 / 60.0)
+
+	assert_eq(world.hijack_fsm.state, HijackFSM.State.NODE_PILOT, "Must enter NODE_PILOT from hosted machine")
+	assert_true(inode.is_piloted)
+
+	# Eject from node back to Cursor
+	script_ctrl.default_intent.eject = true
+	world._physics_process(1.0 / 60.0)
+	script_ctrl.default_intent.eject = false
+
+	assert_eq(world.hijack_fsm.state, HijackFSM.State.CURSOR, "Ejecting from node must return to CURSOR")
+	assert_false(inode.is_piloted)
+
+	# Verify machines in world: exactly 1 Cursor and 1 parked janitor
+	var cursor_count: int = 0
+	var parked_count: int = 0
+	for m: Machine in world.machines:
+		if is_instance_valid(m):
+			if m.body_id == "cursor":
+				cursor_count += 1
+			elif m.entity_id == "janitor_host":
+				parked_count += 1
+	assert_eq(cursor_count, 1, "Must have exactly 1 Cursor in world after ejecting from node")
+	assert_eq(parked_count, 1, "Must retain the 1 parked Janitor host in world")
+

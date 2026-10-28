@@ -39,9 +39,26 @@ var recorded_input_stream: Array[Dictionary] = []
 @onready var perf_label: Label = $PerfOverlay/PerfLabel
 @onready var warp_dialog: Control = $WarpDialog
 @onready var warp_input: LineEdit = $WarpDialog/LineEdit
+@onready var garage_dialog: Control = get_node_or_null("GarageDialog")
+@onready var garage_list_label: Label = get_node_or_null("GarageDialog/ListLabel")
+
+var garage_selected_idx: int = 0
+var current_dock: Dock = null
+var node_pilot_controller: Controller = null
 
 func _ready() -> void:
 	if hijack_fsm != null:
+		var game_node: Node = get_node_or_null("/root/Game")
+		if game_node != null:
+			var reg: Variant = game_node.get("registered_models")
+			if reg is Array:
+				for m_id: Variant in (reg as Array):
+					var s: String = str(m_id)
+					if not hijack_fsm.registered_models.has(s):
+						hijack_fsm.registered_models.append(s)
+			else:
+				game_node.set("registered_models", hijack_fsm.registered_models.duplicate())
+
 		hijack_fsm.state_changed.connect(_on_hijack_state_changed)
 		hijack_fsm.host_parked.connect(_on_host_parked)
 		hijack_fsm.host_seized.connect(_on_host_seized)
@@ -65,6 +82,9 @@ func _exit_tree() -> void:
 		hijack_fsm.cancel_targeting()
 
 func handle_back_input() -> bool:
+	if garage_dialog != null and garage_dialog.visible:
+		close_garage_dialog()
+		return true
 	if warp_dialog != null and warp_dialog.visible:
 		warp_dialog.visible = false
 		return true
@@ -72,7 +92,8 @@ func handle_back_input() -> bool:
 		hijack_fsm.cancel_targeting()
 		return true
 	if hijack_fsm != null and hijack_fsm.state == HijackFSM.State.NODE_PILOT:
-		var pos: Vector2 = player_machine.position if player_machine != null else Vector2.ZERO
+		var node_ent: Node = _find_entity_by_id(hijack_fsm.current_node_id)
+		var pos: Vector2 = (node_ent as Node2D).position if node_ent is Node2D else (player_machine.position if player_machine != null else Vector2.ZERO)
 		hijack_fsm.voluntary_eject(pos)
 		return true
 	return false
@@ -118,13 +139,14 @@ func _draw() -> void:
 		return
 
 	if hijack_fsm.state == HijackFSM.State.TARGETING:
-		# Draw link range radius
-		draw_arc(hijack_fsm.spark_pos, hijack_fsm.link_range_px, 0.0, TAU, 32, Color(0.2, 0.8, 1.0, 0.15), 1.0)
-		for cand: Dictionary in hijack_fsm.targeting_candidates:
+		var origin: Vector2 = hijack_fsm.targeting_origin
+		var range_px: float = hijack_fsm.get_link_range_px()
+		draw_arc(origin, range_px, 0.0, TAU, 32, Color(0.2, 0.8, 1.0, 0.15), 1.0)
+		for cand: Dictionary in hijack_fsm.valid_targets:
 			var c_pos: Vector2 = cand.get("pos", Vector2.ZERO)
 			var c_id: String = str(cand.get("id", ""))
 			if c_id == hijack_fsm.selected_target_id:
-				draw_line(hijack_fsm.spark_pos, c_pos, Color(0.2, 1.0, 0.8, 0.8), 1.5)
+				draw_line(origin, c_pos, Color(0.2, 1.0, 0.8, 0.8), 1.5)
 				draw_rect(Rect2(c_pos - Vector2(10, 10), Vector2(20, 20)), Color(0.2, 1.0, 0.8, 0.9), false, 1.5)
 			else:
 				draw_rect(Rect2(c_pos - Vector2(8, 8), Vector2(16, 16)), Color(0.2, 0.8, 1.0, 0.3), false, 1.0)
@@ -137,10 +159,10 @@ func _draw() -> void:
 		draw_circle(player_machine.pin_position, 3.0, Color(1.0, 0.8, 0.2, 0.7))
 
 func _physics_process(delta: float) -> void:
-	# 1. Sample manual player input via InputRouter (zero out if warp dialog is open)
+	# 1. Sample manual player input via InputRouter (zero out if warp or garage dialog is open)
 	var input_router: Node = get_node_or_null("/root/InputRouter")
 	if input_router != null:
-		if warp_dialog != null and warp_dialog.visible:
+		if (warp_dialog != null and warp_dialog.visible) or (garage_dialog != null and garage_dialog.visible):
 			if input_router.has_method("reset_input"):
 				input_router.call("reset_input")
 		elif input_router.has_method("sample_input"):
@@ -171,6 +193,7 @@ func _physics_process(delta: float) -> void:
 	# System 5: movement
 	_step_movement(delta)
 	# System 6: logic (P5)
+	_step_logic()
 	# System 7: combat (P9)
 	# System 8: world (room transitions)
 	_step_world()
@@ -183,12 +206,37 @@ func _physics_process(delta: float) -> void:
 	_update_hud()
 	_update_perf_overlay()
 
+func _step_logic() -> void:
+	if is_inside_tree():
+		for plate_node: Node in get_tree().get_nodes_in_group("plates"):
+			if plate_node is Plate and is_instance_valid(plate_node):
+				(plate_node as Plate).check_weight()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey):
 		return
 	var key_event: InputEventKey = event as InputEventKey
 	if not key_event.pressed or key_event.echo:
 		return
+
+	if garage_dialog != null and garage_dialog.visible:
+		match key_event.keycode:
+			KEY_UP, KEY_W:
+				if hijack_fsm != null and not hijack_fsm.registered_models.is_empty():
+					garage_selected_idx = (garage_selected_idx - 1 + hijack_fsm.registered_models.size()) % hijack_fsm.registered_models.size()
+					_refresh_garage_ui()
+				return
+			KEY_DOWN, KEY_S:
+				if hijack_fsm != null and not hijack_fsm.registered_models.is_empty():
+					garage_selected_idx = (garage_selected_idx + 1) % hijack_fsm.registered_models.size()
+					_refresh_garage_ui()
+				return
+			KEY_ENTER, KEY_E, KEY_SPACE, KEY_J:
+				_confirm_garage_fabricate()
+				return
+			KEY_ESCAPE:
+				close_garage_dialog()
+				return
 
 	match key_event.keycode:
 		KEY_F2:
@@ -201,6 +249,50 @@ func _unhandled_input(event: InputEvent) -> void:
 			cycle_player_body()
 		KEY_F10:
 			toggle_input_recording()
+
+func open_garage_dialog(dock: Dock) -> void:
+	current_dock = dock
+	garage_selected_idx = 0
+	if garage_dialog != null:
+		garage_dialog.visible = true
+	_refresh_garage_ui()
+
+func close_garage_dialog() -> void:
+	if garage_dialog != null:
+		garage_dialog.visible = false
+	current_dock = null
+
+func _refresh_garage_ui() -> void:
+	if garage_list_label == null or hijack_fsm == null:
+		return
+	var game_node: Node = get_node_or_null("/root/Game")
+	var scrap_avail: int = int(game_node.get("scrap")) if game_node != null else 0
+	var lines: Array[String] = []
+	lines.append("AVAILABLE SCRAP: %d" % scrap_avail)
+	lines.append("----------------------------")
+	var models: Array[String] = hijack_fsm.registered_models
+	if models.is_empty():
+		lines.append("  (No models registered)")
+	else:
+		garage_selected_idx = clampi(garage_selected_idx, 0, models.size() - 1)
+		for i: int in range(models.size()):
+			var m_id: String = models[i]
+			var cost: int = current_dock.get_model_cost(m_id) if current_dock != null else 10
+			var prefix: String = " > " if i == garage_selected_idx else "   "
+			lines.append("%s%-10s [%02d SCRAP]" % [prefix, m_id.to_upper(), cost])
+	garage_list_label.text = "\n".join(lines)
+
+func _confirm_garage_fabricate() -> void:
+	if current_dock == null or hijack_fsm == null:
+		return
+	var models: Array[String] = hijack_fsm.registered_models
+	if garage_selected_idx < 0 or garage_selected_idx >= models.size():
+		return
+	var chosen_model: String = models[garage_selected_idx]
+	var fab_m: Machine = current_dock.fabricate(chosen_model, self)
+	if fab_m != null:
+		close_garage_dialog()
+		_update_hud()
 
 func toggle_debug_collisions() -> void:
 	show_debug_collisions = not show_debug_collisions
@@ -290,13 +382,53 @@ func _step_controllers(tick: int) -> void:
 	for m: Machine in machines:
 		if is_instance_valid(m):
 			m.step_controller(tick)
-	if hijack_fsm != null and (hijack_fsm.state == HijackFSM.State.TARGETING or hijack_fsm.state == HijackFSM.State.TRANSIT):
-		if player_machine != null and is_instance_valid(player_machine):
+	if hijack_fsm != null and (hijack_fsm.state == HijackFSM.State.TARGETING or hijack_fsm.state == HijackFSM.State.TRANSIT or hijack_fsm.state == HijackFSM.State.NODE_PILOT):
+		if player_machine != null and is_instance_valid(player_machine) and player_machine.operational_state == "player":
 			player_machine.current_intent.move = Vector2.ZERO
 
 func _step_hijack(delta: float) -> void:
+	# Node pilot stepping (player_machine may be null while piloting an infrastructure node)
+	if hijack_fsm != null and hijack_fsm.state == HijackFSM.State.NODE_PILOT:
+		var operate_pressed: bool = false
+		var eject_pressed: bool = false
+		if node_pilot_controller is ScriptController:
+			var s_ctrl: ScriptController = node_pilot_controller as ScriptController
+			operate_pressed = s_ctrl.default_intent.primary or s_ctrl.default_intent.interact
+			eject_pressed = s_ctrl.default_intent.hop or s_ctrl.default_intent.eject
+		elif player_machine != null and is_instance_valid(player_machine) and player_machine.controller is ScriptController:
+			var s_ctrl2: ScriptController = player_machine.controller as ScriptController
+			operate_pressed = s_ctrl2.default_intent.primary or s_ctrl2.default_intent.interact
+			eject_pressed = s_ctrl2.default_intent.hop or s_ctrl2.default_intent.eject
+		else:
+			var input_router: Node = get_node_or_null("/root/InputRouter")
+			if input_router != null:
+				operate_pressed = bool(input_router.get("primary")) or bool(input_router.get("interact"))
+				eject_pressed = bool(input_router.get("hop")) or bool(input_router.get("eject"))
+			elif player_machine != null and is_instance_valid(player_machine):
+				operate_pressed = player_machine.current_intent.primary or player_machine.current_intent.interact
+				eject_pressed = player_machine.current_intent.hop or player_machine.current_intent.eject
+
+		if operate_pressed:
+			var node_ent: Node = _find_entity_by_id(hijack_fsm.current_node_id)
+			if node_ent != null and node_ent is InfraNode:
+				(node_ent as InfraNode).operate_node()
+		if eject_pressed:
+			var node_ent: Node = _find_entity_by_id(hijack_fsm.current_node_id)
+			var pos: Vector2 = (node_ent as Node2D).position if node_ent is Node2D else (player_machine.position if player_machine != null else Vector2.ZERO)
+			hijack_fsm.voluntary_eject(pos)
+			return
+		return
+
 	if player_machine == null or not is_instance_valid(player_machine):
 		return
+
+	# Dock interaction for Garage Fabricate popup
+	if player_machine.current_intent.interact:
+		if is_inside_tree() and (garage_dialog == null or not garage_dialog.visible):
+			for dock_node: Node in get_tree().get_nodes_in_group("docks"):
+				if dock_node is Dock and (dock_node as Dock).overlaps_body(player_machine):
+					open_garage_dialog(dock_node as Dock)
+					return
 
 	# Handle routine cycling and pin dropping from player intent
 	if player_machine.current_intent.routine_cycle:
@@ -347,20 +479,6 @@ func _step_hijack(delta: float) -> void:
 		hijack_fsm.step_transit(delta, firewall_hit)
 		return
 
-	# Node pilot stepping
-	if hijack_fsm.state == HijackFSM.State.NODE_PILOT:
-		if player_machine != null and is_instance_valid(player_machine):
-			if player_machine.current_intent.primary or player_machine.current_intent.interact:
-				var node_ent: Node = _find_entity_by_id(hijack_fsm.current_node_id)
-				if node_ent != null and node_ent is InfraNode:
-					(node_ent as InfraNode).operate_node()
-			if player_machine.current_intent.hop or player_machine.current_intent.eject:
-				var node_ent: Node = _find_entity_by_id(hijack_fsm.current_node_id)
-				var pos: Vector2 = (node_ent as Node2D).position if node_ent is Node2D else player_machine.position
-				hijack_fsm.voluntary_eject(pos)
-				return
-		return
-
 	# Cursor TTL stepping and crash check
 	if hijack_fsm.state == HijackFSM.State.CURSOR:
 		if player_machine != null and player_machine.state != null and player_machine.state.is_crashed:
@@ -386,13 +504,19 @@ func _on_host_parked(host_id: String, routine: String, pin_pos: Vector2) -> void
 		var r_ctrl: RoutineController = RoutineController.new(p_state)
 		r_ctrl.name = "Controller"
 		var old_ctrl: Node = host.get_node_or_null("Controller")
+		if host.controller is ScriptController:
+			node_pilot_controller = host.controller
+		elif old_ctrl is ScriptController:
+			node_pilot_controller = old_ctrl
 		if old_ctrl != null:
 			host.remove_child(old_ctrl)
-			old_ctrl.queue_free()
+			if old_ctrl != node_pilot_controller:
+				old_ctrl.queue_free()
 		host.add_child(r_ctrl)
 		host.controller = r_ctrl
 
 func _on_host_seized(host_id: String, _model_id: String) -> void:
+	node_pilot_controller = null
 	var target: Machine = _find_machine_by_id(host_id)
 	if target != null:
 		if player_machine != null and player_machine != target:
@@ -420,6 +544,15 @@ func _on_transit_blocked_by_firewall(block_pos: Vector2) -> void:
 	_spawn_player_cursor_at(block_pos)
 
 func _on_node_seized(node_id: String) -> void:
+	if player_machine != null and is_instance_valid(player_machine):
+		if player_machine.controller is ScriptController:
+			node_pilot_controller = player_machine.controller
+		if player_machine.body_id == "cursor":
+			var old_cursor: Machine = player_machine
+			machines.erase(old_cursor)
+			if is_instance_valid(old_cursor):
+				old_cursor.queue_free()
+		player_machine = null
 	var ent: Node = _find_entity_by_id(node_id)
 	if ent != null and ent is InfraNode:
 		(ent as InfraNode).on_seized(self)
@@ -428,6 +561,7 @@ func _on_node_exited(node_id: String) -> void:
 	var ent: Node = _find_entity_by_id(node_id)
 	if ent != null and ent is InfraNode:
 		(ent as InfraNode).on_exited()
+	node_pilot_controller = null
 
 func _on_reboot_triggered(reason: String) -> void:
 	var events_node: Node = get_node_or_null("/root/Events")
@@ -451,6 +585,11 @@ func _on_reboot_triggered(reason: String) -> void:
 	hijack_fsm.refill_ttl()
 
 func _on_model_registered(model_id: String) -> void:
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node != null:
+		var reg: Variant = game_node.get("registered_models")
+		if reg is Array and not (reg as Array).has(model_id):
+			(reg as Array).append(model_id)
 	var events_node: Node = get_node_or_null("/root/Events")
 	if events_node != null:
 		events_node.emit_signal("log_found", "reg_%s" % model_id)
@@ -1069,7 +1208,11 @@ func load_room(room_id: String) -> void:
 	_setup_player_machine(data)
 	_spawn_room_entities(data)
 	_restore_current_room_parked_hosts()
-	var pause_ttl: bool = bool(data.get("pause_ttl_until_hijack", false))
+	var pause_ttl: bool = false
+	if data.has("rules") and data["rules"] is Dictionary:
+		pause_ttl = bool((data["rules"] as Dictionary).get("pause_ttl_until_hijack", false))
+	if not pause_ttl:
+		pause_ttl = bool(data.get("pause_ttl_until_hijack", false))
 	hijack_fsm.reset_for_room(pause_ttl)
 	_update_hud()
 
@@ -1157,12 +1300,9 @@ func _update_hud() -> void:
 				fsm_state_str = "TRANSIT"
 			HijackFSM.State.NODE_PILOT:
 				fsm_state_str = "NODE"
-	var game_node: Node = get_node_or_null("/root/Game")
-	var garage_count: int = 0
-	if game_node != null:
-		var reg: Variant = game_node.get("registered_models")
-		if reg is Array:
-			garage_count = (reg as Array).size()
+	var garage_count: int = 1
+	if hijack_fsm != null:
+		garage_count = hijack_fsm.registered_models.size()
 	var rec_str: String = ""
 	if is_recording_input:
 		rec_str = " | REC: ON"

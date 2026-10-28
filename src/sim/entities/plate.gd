@@ -10,6 +10,7 @@ signal plate_pressed_changed(plate_id: String, is_pressed: bool)
 var is_pressed: bool = false
 var collider: CollisionShape2D = null
 var visual_rect: ColorRect = null
+var pressing_machines: Array[Machine] = []
 
 func _ready() -> void:
 	add_to_group("plates")
@@ -49,6 +50,12 @@ func check_weight() -> void:
 	if is_latched and is_pressed:
 		return
 
+	# Reset is_holding_latch on previously pressing machines
+	for prev_m: Machine in pressing_machines:
+		if is_instance_valid(prev_m):
+			prev_m.set_meta("is_holding_latch", false)
+	pressing_machines.clear()
+
 	var current_weight: int = 0
 	var candidates: Array[Node2D] = []
 	for b: Node2D in get_overlapping_bodies():
@@ -76,17 +83,23 @@ func check_weight() -> void:
 					if plate_rect.intersects(c_rect):
 						candidates.append(c_2d)
 
+	var candidate_machines: Array[Machine] = []
 	for b: Node2D in candidates:
 		if b is Machine:
 			var m: Machine = b as Machine
 			current_weight += m.weight
-			if is_latched or current_weight >= weight_threshold:
-				m.set_meta("is_holding_latch", true)
+			candidate_machines.append(m)
 		elif b is Crate:
 			var c: Crate = b as Crate
 			current_weight += c.weight
 
 	var should_press: bool = current_weight >= weight_threshold
+	if should_press or is_latched:
+		for m: Machine in candidate_machines:
+			m.set_meta("is_holding_latch", true)
+			if not pressing_machines.has(m):
+				pressing_machines.append(m)
+
 	if should_press != is_pressed:
 		set_pressed(should_press)
 

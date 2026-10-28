@@ -11,6 +11,7 @@ var last_dock_spawn_pos: Vector2 = Vector2.ZERO
 var visited_docks: Array[String] = []
 var garage_slots_cap: int = 3
 var persistent_parked_hosts: Dictionary = {} # room_id -> Array[Dictionary]
+var registered_models: Array[String] = ["cursor"]
 
 func advance_tick() -> void:
 	if paused or is_transitioning:
@@ -30,3 +31,4 @@ func reset() -> void:
 	last_dock_spawn_pos = Vector2.ZERO
 	visited_docks.clear()
 	persistent_parked_hosts.clear()
+	registered_models = ["cursor"]
