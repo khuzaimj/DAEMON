@@ -16,7 +16,7 @@ func _run_shot() -> void:
 		elif arg.begins_with("--room="):
 			target_rooms.append(arg.substr(7))
 		elif arg == "--all":
-			target_rooms.append_array(["debug_01", "debug_02", "debug_03", "debug_04", "debug_05", "debug_06", "debug_07", "debug_08"])
+			target_rooms.append_array(["debug_01", "debug_02", "debug_03", "debug_04", "debug_05", "debug_06", "debug_07", "debug_08", "debug_09", "debug_10"])
 
 	if target_rooms.is_empty():
 		target_rooms.append("debug_01")
