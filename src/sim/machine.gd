@@ -304,6 +304,7 @@ func _apply_size_class() -> void:
 		mask_flags |= (1 << (2 - 1)) # Layer 2: conduit_gate (blocks non-XS)
 	if not mediums.has("hover"):
 		mask_flags |= (1 << (10 - 1)) # Layer 10: pit (blocks non-hovering machines)
+	mask_flags |= (1 << (11 - 1)) # Layer 11: magnetic wall
 	collision_mask = mask_flags
 
 ## Called once per tick by World controllers system
@@ -441,35 +442,68 @@ func step_movement(delta: float) -> void:
 			knockback_velocity = knockback_velocity.move_toward(Vector2.ZERO, 500.0 * delta)
 		return
 
-	var speed_px: float = effective_speed_tiles * float(Grid.TILE_SIZE)
+	# Magnetic wall traversal via cling
+	if TerrainRules.can_traverse_magnetic(passives, state.has_status("cling"), body_id):
+		collision_mask &= ~(1 << (11 - 1))
+	else:
+		collision_mask |= (1 << (11 - 1))
 
-	# Check terrain medium and hazards at current position
+	var speed_px: float = effective_speed_tiles * float(Grid.TILE_SIZE)
+	var conveyor_push: Vector2 = Vector2.ZERO
+
+	# Check terrain medium, conveyors and hazards at current position
 	if current_room != null:
+		var cell: Vector2i = Grid.pixel_to_tile(global_position)
+		if not TerrainRules.should_ignore_conveyor(mediums):
+			if Grid.is_in_room_bounds(cell) and cell.y < current_room.grid.size() and cell.x < current_room.grid[cell.y].length():
+				var glyph: String = current_room.grid[cell.y][cell.x]
+				var conv_speed: float = TerrainRules.get_rule_float(current_room._rules_def, "conveyor_speed_px", 32.0)
+				conveyor_push = TerrainRules.calculate_conveyor_push(glyph, current_room._tiles_def, conv_speed)
+
 		var terrain: Dictionary = current_room.terrain_at(global_position)
 		var medium_type: String = str(terrain.get("medium", ""))
 		var hazard_type: String = str(terrain.get("hazard", ""))
 
 		# Medium: Liquid (Coolant)
 		if medium_type == "liquid":
-			if not mediums.has("liquid"):
+			if not (mediums.has("liquid") or body_id == "diver"):
 				speed_px *= 0.5 # Coolant slows non-swimmers
-				state.add_heat(15.0 * delta) # Non-divers take 15 Heat/s
+				var coolant_rate: float = TerrainRules.get_rule_float(current_room._rules_def, "coolant_heat_drain_per_s", 15.0)
+				state.add_heat(coolant_rate * delta) # Non-divers take 15 Heat/s
 
 		# Medium: Void (Pit) - Drone passive cooling
 		if medium_type == "void" and mediums.has("hover"):
 			state.current_heat = maxf(0.0, state.current_heat - (8.0 * delta)) # 8 Heat/s drain
 
-		# Hazard: Spikes / Floor hazards
+		# Hazard: Spikes
 		if hazard_type == "spikes":
-			if not (passives.has("insulated") or body_id == "crawler"):
-				take_damage(1, "kinetic")
+			if not TerrainRules.is_insulated(passives, body_id) and not mediums.has("hover"):
+				var spike_interval: int = TerrainRules.get_rule_int(current_room._rules_def, "spike_interval_ticks", 30)
+				if Engine.get_physics_frames() % spike_interval == 0:
+					var spike_dmg: int = TerrainRules.get_rule_int(current_room._rules_def, "spike_damage", 1)
+					take_damage(spike_dmg, "kinetic")
+
+		# Hazard: Electric
+		if hazard_type == "electric":
+			if not TerrainRules.is_insulated(passives, body_id) and not mediums.has("hover"):
+				var elec_interval: int = TerrainRules.get_rule_int(current_room._rules_def, "electric_interval_ticks", 30)
+				if Engine.get_physics_frames() % elec_interval == 0:
+					var elec_dmg: int = TerrainRules.get_rule_int(current_room._rules_def, "electric_damage", 1)
+					var elec_heat: float = TerrainRules.get_rule_float(current_room._rules_def, "electric_heat", 10.0)
+					take_damage(elec_dmg, "electric")
+					add_heat(elec_heat)
+
+		# Hazard: Collapsing floor
+		if hazard_type == "collapsing":
+			if not TerrainRules.can_safely_cross_collapsing(passives, mediums, body_id):
+				current_room.trigger_collapse(cell)
 
 		# Hazard: Bitrot
 		if hazard_type == "bitrot":
 			if not (passives.has("bitrot_immune") or body_id == "janitor"):
 				take_damage(1, "decay")
 
-	velocity = current_intent.move * speed_px + knockback_velocity
+	velocity = current_intent.move * speed_px + conveyor_push + knockback_velocity
 	if Engine.is_in_physics_frame():
 		move_and_slide()
 		for i: int in range(get_slide_collision_count()):

@@ -45,6 +45,10 @@ func _init() -> void:
 	var known_glyphs: Array[String] = []
 	if parsed_data.has("res://data/tiles.json"):
 		var tiles_root: Dictionary = parsed_data["res://data/tiles.json"] as Dictionary
+		var tile_errors: Array[String] = Schema.validate_tiles(tiles_root, "res://data/tiles.json")
+		for err_msg: String in tile_errors:
+			printerr("ERROR: " + err_msg)
+			error_count += 1
 		var tiles_dict: Dictionary = tiles_root.get("tiles", {})
 		for g: Variant in tiles_dict.keys():
 			known_glyphs.append(str(g))

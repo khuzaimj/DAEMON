@@ -63,3 +63,4 @@ enabled=PackedStringArray("res://addons/gut/plugin.cfg")
 2d_physics/layer_8="firewall"
 2d_physics/layer_9="projectile"
 2d_physics/layer_10="pit"
+2d_physics/layer_11="magnetic"

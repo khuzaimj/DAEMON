@@ -6,17 +6,26 @@ var room_id: String = ""
 var exits: Dictionary = {}
 var grid: Array[String] = []
 
+const GLYPH_ORDER: Array[String] = [
+	".", "#", ":", "o", "~", "^", ",", "X", "%", "*",
+	"}", "{", "A", "V", "=", "M", "-"
+]
+
 var _tiles_def: Dictionary = {}
+var _rules_def: Dictionary = {}
 var _tilemap_layer: TileMapLayer = null
 var _static_body_solid: StaticBody2D = null
 var _static_body_conduit: StaticBody2D = null
 var _static_body_pit: StaticBody2D = null
+var _static_body_magnetic: StaticBody2D = null
+var _collapsing_regions: Array[Dictionary] = []
 
 func setup(data: Dictionary) -> void:
 	room_data = data
 	room_id = data.get("id", "")
 	exits = data.get("exits", {})
 	grid.clear()
+	_collapsing_regions.clear()
 	var raw_grid: Array = data.get("grid", [])
 	for row: Variant in raw_grid:
 		grid.append(str(row))
@@ -25,6 +34,7 @@ func setup(data: Dictionary) -> void:
 	_build_collision()
 
 func _load_tiles_def() -> void:
+	var raw_data: Dictionary = {}
 	var main_loop: MainLoop = Engine.get_main_loop()
 	if main_loop is SceneTree:
 		var root: Window = (main_loop as SceneTree).root
@@ -33,14 +43,15 @@ func _load_tiles_def() -> void:
 			if data_node != null and data_node.has_method("get_json"):
 				var raw: Variant = data_node.call("get_json", "res://data/tiles.json")
 				if raw is Dictionary:
-					_tiles_def = (raw as Dictionary).get("tiles", {})
-					return
-	if FileAccess.file_exists("res://data/tiles.json"):
+					raw_data = raw as Dictionary
+	if raw_data.is_empty() and FileAccess.file_exists("res://data/tiles.json"):
 		var file: FileAccess = FileAccess.open("res://data/tiles.json", FileAccess.READ)
 		if file != null:
 			var json: JSON = JSON.new()
 			if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
-				_tiles_def = (json.data as Dictionary).get("tiles", {})
+				raw_data = json.data as Dictionary
+	_tiles_def = raw_data.get("tiles", {})
+	_rules_def = raw_data.get("rules", TerrainRules.DEFAULT_RULES)
 
 func _build_visual_tilemap() -> void:
 	if _tilemap_layer != null:
@@ -53,7 +64,10 @@ func _build_visual_tilemap() -> void:
 	var tile_set: TileSet = TileSet.new()
 	tile_set.tile_size = Vector2i(Grid.TILE_SIZE, Grid.TILE_SIZE)
 
-	var glyph_order: Array[String] = [".", "#", ":", "o", "~", "^", ",", "X", "%", "*"]
+	var glyph_order: Array[String] = [
+		".", "#", ":", "o", "~", "^", ",", "X", "%", "*",
+		"}", "{", "A", "V", "=", "M", "-"
+	]
 	var colors: Array[Color] = [
 		Color(0.12, 0.10, 0.08), # . floor
 		Color(0.30, 0.25, 0.20), # # wall
@@ -64,7 +78,14 @@ func _build_visual_tilemap() -> void:
 		Color(0.20, 0.22, 0.15), # , grime
 		Color(0.40, 0.35, 0.30), # X cracked wall
 		Color(0.55, 0.40, 0.15), # % weld barrier
-		Color(0.35, 0.10, 0.30)  # * bitrot
+		Color(0.35, 0.10, 0.30), # * bitrot
+		Color(0.25, 0.35, 0.25), # } belt_e
+		Color(0.25, 0.35, 0.25), # { belt_w
+		Color(0.25, 0.35, 0.25), # A belt_n
+		Color(0.25, 0.35, 0.25), # V belt_s
+		Color(0.20, 0.40, 0.60), # = electrified
+		Color(0.40, 0.15, 0.35), # M magnetic
+		Color(0.35, 0.25, 0.15)  # - collapsing
 	]
 
 	var img: Image = Image.create(Grid.TILE_SIZE * glyph_order.size(), Grid.TILE_SIZE, false, Image.FORMAT_RGBA8)
@@ -99,6 +120,8 @@ func _build_collision() -> void:
 		_static_body_conduit.queue_free()
 	if _static_body_pit != null:
 		_static_body_pit.queue_free()
+	if _static_body_magnetic != null:
+		_static_body_magnetic.queue_free()
 
 	_static_body_solid = StaticBody2D.new()
 	_static_body_solid.name = "CollisionSolid"
@@ -118,9 +141,15 @@ func _build_collision() -> void:
 	_static_body_pit.collision_mask = 0
 	add_child(_static_body_pit)
 
+	_static_body_magnetic = StaticBody2D.new()
+	_static_body_magnetic.name = "CollisionMagnetic"
+	_static_body_magnetic.collision_layer = 1 << (11 - 1) # Layer 11: magnetic
+	_static_body_magnetic.collision_mask = 0
+	add_child(_static_body_magnetic)
+
 	_generate_merged_runs(_static_body_solid, func(glyph: String) -> bool:
 		var def: Dictionary = _tiles_def.get(glyph, {})
-		return def.get("solid", false)
+		return def.get("solid", false) and not def.get("magnetic", false)
 	)
 	_generate_merged_runs(_static_body_conduit, func(glyph: String) -> bool:
 		var def: Dictionary = _tiles_def.get(glyph, {})
@@ -129,6 +158,10 @@ func _build_collision() -> void:
 	_generate_merged_runs(_static_body_pit, func(glyph: String) -> bool:
 		var def: Dictionary = _tiles_def.get(glyph, {})
 		return def.get("medium", "") == "void"
+	)
+	_generate_merged_runs(_static_body_magnetic, func(glyph: String) -> bool:
+		var def: Dictionary = _tiles_def.get(glyph, {})
+		return def.get("magnetic", false)
 	)
 
 func _generate_merged_runs(body: StaticBody2D, match_fn: Callable) -> void:
@@ -164,6 +197,10 @@ func terrain_at(pixel_pos: Vector2) -> Dictionary:
 		return { "name": "void", "medium": "void" }
 	if cell.y >= grid.size() or cell.x >= grid[cell.y].length():
 		return { "name": "floor" }
+	if is_inside_tree():
+		for bridge_node: Node in get_tree().get_nodes_in_group("bridges"):
+			if bridge_node is Bridge and (bridge_node as Bridge).is_point_on_active_bridge(pixel_pos):
+				return { "name": "floor" }
 	var glyph: String = grid[cell.y][cell.x]
 	var def: Dictionary = _tiles_def.get(glyph, {})
 	var result: Dictionary = def.duplicate()
@@ -192,14 +229,58 @@ func set_tile_at(cell: Vector2i, new_glyph: String, rebuild_collision: bool = tr
 	grid[cell.y] = row.substr(0, cell.x) + new_glyph + row.substr(cell.x + 1)
 	
 	if _tilemap_layer != null:
-		var glyph_order: Array[String] = [".", "#", ":", "o", "~", "^", ",", "X", "%", "*"]
-		var idx: int = glyph_order.find(new_glyph)
+		var idx: int = GLYPH_ORDER.find(new_glyph)
 		if idx == -1:
 			idx = 0
 		_tilemap_layer.set_cell(cell, 0, Vector2i(idx, 0))
 		
 	if rebuild_collision:
 		_build_collision()
+
+func trigger_collapse(cell: Vector2i) -> void:
+	if not Grid.is_in_room_bounds(cell):
+		return
+	if cell.y >= grid.size() or cell.x >= grid[cell.y].length():
+		return
+	if grid[cell.y][cell.x] != "-":
+		return
+	for reg: Dictionary in _collapsing_regions:
+		var cells: Array = reg.get("cells", [])
+		if cells.has(cell):
+			return
+	var region_cells: Array[Vector2i] = TerrainRules.get_connected_collapse_region(grid, cell)
+	if region_cells.is_empty():
+		return
+	var delay_ticks: int = TerrainRules.get_rule_int(_rules_def, "collapse_delay_ticks", 30)
+	_collapsing_regions.append({ "cells": region_cells, "ticks_left": delay_ticks })
+
+func step_collapsing(world: Node) -> void:
+	if _collapsing_regions.is_empty():
+		return
+	var to_remove: Array[int] = []
+	for i: int in range(_collapsing_regions.size()):
+		var reg: Dictionary = _collapsing_regions[i]
+		reg["ticks_left"] = int(reg["ticks_left"]) - 1
+		if int(reg["ticks_left"]) <= 0:
+			to_remove.append(i)
+			var cells: Array = reg["cells"] as Array
+			for c_val: Variant in cells:
+				var c: Vector2i = c_val as Vector2i
+				set_tile_at(c, "o", false)
+			_build_collision()
+			if world != null:
+				var machines_val: Variant = world.get("machines")
+				if machines_val is Array:
+					for m_node: Variant in (machines_val as Array):
+						if is_instance_valid(m_node) and m_node is Machine:
+							var m: Machine = m_node as Machine
+							if m.state != null and m.state.current_integrity > 0:
+								if not m.mediums.has("hover"):
+									var m_cell: Vector2i = Grid.pixel_to_tile(m.global_position)
+									if cells.has(m_cell):
+										m.take_damage(m.state.current_integrity, "void", true)
+	for i: int in range(to_remove.size() - 1, -1, -1):
+		_collapsing_regions.remove_at(to_remove[i])
 
 func clear_tiles_in_arc(origin: Vector2, facing: Vector2, arc_deg: float, radius: float, verb: String) -> int:
 	var cleared_count: int = 0

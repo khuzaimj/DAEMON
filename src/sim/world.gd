@@ -296,8 +296,11 @@ func _step_combat(delta: float) -> void:
 func _step_logic() -> void:
 	if logic_system != null:
 		logic_system.step(self, tick_count)
-	if active_room != null and is_instance_valid(active_room) and active_room.has_method("step_bitrot"):
-		active_room.call("step_bitrot", self, tick_count)
+	if active_room != null and is_instance_valid(active_room):
+		if active_room.has_method("step_bitrot"):
+			active_room.call("step_bitrot", self, tick_count)
+		if active_room.has_method("step_collapsing"):
+			active_room.call("step_collapsing", self)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey):

@@ -134,21 +134,38 @@ Rules: UTF-8, snake_case keys, unknown keys are errors, keys starting with `_` (
 ```json
 {
   "tiles": {
-    "#": { "name": "wall",    "solid": true },
+    "#": { "name": "wall",        "solid": true },
     ".": { "name": "floor" },
-    ",": { "name": "grime",   "clear_by": "sweep" },
-    "~": { "name": "coolant", "medium": "liquid" },
-    "o": { "name": "pit",     "medium": "void" },
-    "^": { "name": "spikes",  "hazard": "spikes" },
-    ":": { "name": "conduit", "fits": "xs" },
-    "X": { "name": "cracked", "solid": true, "break_by": "ram" },
-    "%": { "name": "weld",    "solid": true, "break_by": "torch" },
-    "}": { "name": "belt_e",  "push": [1, 0] }
+    ",": { "name": "grime",       "clear_by": "sweep" },
+    "~": { "name": "coolant",     "medium": "liquid" },
+    "o": { "name": "pit",         "medium": "void" },
+    "^": { "name": "spikes",      "hazard": "spikes" },
+    ":": { "name": "conduit",     "fits": "xs" },
+    "X": { "name": "cracked",     "solid": true, "break_by": "ram" },
+    "%": { "name": "weld",        "solid": true, "break_by": "torch" },
+    "*": { "name": "bitrot",      "hazard": "bitrot", "clear_by": "sweep" },
+    "}": { "name": "belt_e",      "push": [1, 0] },
+    "{": { "name": "belt_w",      "push": [-1, 0] },
+    "A": { "name": "belt_n",      "push": [0, -1] },
+    "V": { "name": "belt_s",      "push": [0, 1] },
+    "=": { "name": "electrified", "hazard": "electric" },
+    "M": { "name": "magnetic",    "solid": true, "magnetic": true },
+    "-": { "name": "collapsing",  "hazard": "collapsing" }
+  },
+  "rules": {
+    "coolant_heat_drain_per_s": 15.0,
+    "spike_damage": 1,
+    "spike_interval_ticks": 30,
+    "electric_damage": 1,
+    "electric_heat": 10.0,
+    "electric_interval_ticks": 30,
+    "conveyor_speed_px": 32.0,
+    "collapse_delay_ticks": 30
   }
 }
 ```
 
-Terrain rules: `solid` tiles become `StaticBody2D` collision on layer `solid` (horizontal runs merged). `fits: xs` tiles become collision on layer `conduit_gate`. `medium`, `hazard`, `push` and `clear_by` tiles have no collision; machines query them from the room's glyph grid by position (`RoomRuntime.terrain_at`). Tile art is a visual-only `TileMapLayer`.
+Terrain rules: `solid` tiles become `StaticBody2D` collision on layer `solid` (horizontal runs merged). `fits: xs` tiles become collision on layer `conduit_gate`. `magnetic` tiles become collision on layer 11 `magnetic` (Crawler `cling` drops layer 11 mask bit to traverse). `medium`, `hazard`, `push` and `clear_by` tiles have no collision; machines query them from the room's glyph grid by position (`RoomRuntime.terrain_at`). Tile art is a visual-only `TileMapLayer`. Collapsing floors (`-`) collapse 4-connected regions into pits (`o`) after a delay when stepped on by non-Courier/non-hovering units.
 
 **Body** (`data/bodies/loader.json`):
 

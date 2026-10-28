@@ -73,6 +73,37 @@ static func validate_sizes(data: Dictionary, context: String = "sizes.json") -> 
 			errors.append("%s: size entry '%s' missing numeric 'hitbox_px'" % [context, str(size_key)])
 	return errors
 
+static func validate_tiles(data: Dictionary, context: String = "tiles.json") -> Array[String]:
+	var errors: Array[String] = []
+	errors.append_array(validate_keys(data, ["tiles", "rules"], context))
+	if not data.has("tiles") or not (data["tiles"] is Dictionary):
+		errors.append("%s: missing or invalid 'tiles' dictionary" % context)
+		return errors
+	var tiles_dict: Dictionary = data["tiles"] as Dictionary
+	var allowed_tile_fields: Array[String] = ["name", "solid", "clear_by", "medium", "hazard", "fits", "break_by", "push", "magnetic"]
+	for glyph_key: Variant in tiles_dict.keys():
+		var entry: Variant = tiles_dict[glyph_key]
+		if not (entry is Dictionary):
+			errors.append("%s: tile entry '%s' must be Dictionary" % [context, str(glyph_key)])
+			continue
+		var entry_dict: Dictionary = entry as Dictionary
+		errors.append_array(validate_keys(entry_dict, allowed_tile_fields, "%s.tiles['%s']" % [context, str(glyph_key)]))
+		if not entry_dict.has("name"):
+			errors.append("%s: tile '%s' missing required 'name'" % [context, str(glyph_key)])
+
+	if data.has("rules"):
+		if not (data["rules"] is Dictionary):
+			errors.append("%s: 'rules' must be Dictionary" % context)
+		else:
+			var rules_dict: Dictionary = data["rules"] as Dictionary
+			var allowed_rule_keys: Array[String] = [
+				"coolant_heat_drain_per_s", "spike_damage", "spike_interval_ticks",
+				"electric_damage", "electric_heat", "electric_interval_ticks",
+				"conveyor_speed_px", "collapse_delay_ticks"
+			]
+			errors.append_array(validate_keys(rules_dict, allowed_rule_keys, "%s.rules" % context))
+	return errors
+
 static func validate_body(data: Dictionary, context: String = "body") -> Array[String]:
 	var errors: Array[String] = []
 	errors.append_array(validate_keys(data, BODY_KEYS, context))
