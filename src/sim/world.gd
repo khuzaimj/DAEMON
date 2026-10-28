@@ -53,6 +53,7 @@ var defeated_enemies_in_room: Array[String] = []
 var hit_stop_ticks: int = 0
 var screen_shake_ticks: int = 0
 var screen_shake_intensity: float = 0.0
+var active_boss_controller: BossController = null
 var screen_shake_offset: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
@@ -260,6 +261,8 @@ func _step_senses(delta: float) -> void:
 func _step_combat(delta: float) -> void:
 	if combat_system != null:
 		combat_system.step(self, tick_count, delta)
+	if active_boss_controller != null and is_instance_valid(active_boss_controller):
+		active_boss_controller.step(self, tick_count, delta)
 
 func _step_logic() -> void:
 	if is_inside_tree():
@@ -593,6 +596,10 @@ func _on_host_seized(host_id: String, _model_id: String) -> void:
 		target.add_child(p_ctrl)
 		target.controller = p_ctrl
 		_update_hud()
+
+		if target is Subsystem:
+			(target as Subsystem).trigger_overload()
+			hijack_fsm.force_eject(target.position, "subsystem_overloaded")
 
 func _on_host_ejected(_from_id: String, _reason: String) -> void:
 	_spawn_player_cursor_at(hijack_fsm.spark_pos)
@@ -1104,6 +1111,52 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 			imm.current_room = active_room
 			entities_container.add_child(imm)
 			register_machine(imm)
+		elif kind == "boss":
+			var boss_id: String = str(ent.get("boss_id", ent.get("id", "bootloader")))
+			var boss_data: Dictionary = {}
+			var data_node: Node = get_node_or_null("/root/Data")
+			if data_node != null and data_node.has_method("get_json"):
+				var raw_b: Variant = data_node.call("get_json", "res://data/bosses/%s.json" % boss_id)
+				if raw_b is Dictionary:
+					boss_data = raw_b
+			if boss_data.is_empty() and FileAccess.file_exists("res://data/bosses/%s.json" % boss_id):
+				var fb: FileAccess = FileAccess.open("res://data/bosses/%s.json" % boss_id, FileAccess.READ)
+				if fb != null:
+					var jb: JSON = JSON.new()
+					if jb.parse(fb.get_as_text()) == OK and jb.data is Dictionary:
+						boss_data = jb.data as Dictionary
+
+			var boss_scene: PackedScene = load("res://scenes/machine.tscn")
+			if boss_scene != null:
+				var boss_m: Machine = boss_scene.instantiate() as Machine
+				boss_m.position = pos
+				boss_m.current_room = active_room
+				boss_m.entity_id = boss_id
+				boss_m.body_id = str(boss_data.get("body", "loader"))
+				boss_m.is_boss_body = true
+				boss_m.operational_state = "hostile"
+				boss_m.faction = "hostile"
+				boss_m.size_class = "l"
+				entities_container.add_child(boss_m)
+				register_machine(boss_m)
+
+				var b_ctrl: BossController = BossController.new()
+				b_ctrl.name = "BossController"
+				b_ctrl.setup(boss_id, boss_data, boss_m)
+				add_child(b_ctrl)
+				active_boss_controller = b_ctrl
+		elif kind == "subsystem":
+			var sub_id: String = str(ent.get("subsystem_id", ent.get("id", "actuator_1")))
+			var sub_type: String = str(ent.get("type", "actuator"))
+			var target_ph: int = int(ent.get("target_phase", ent.get("phase", 1)))
+			var sub: Subsystem = Subsystem.new(sub_id, sub_type)
+			sub.position = pos
+			sub.target_phase = target_ph
+			sub.current_room = active_room
+			entities_container.add_child(sub)
+			register_machine(sub)
+			if active_boss_controller != null:
+				active_boss_controller.register_subsystem(sub)
 		elif kind == "enemy" or (kind == "machine" and (ent.has("enemy_id") or str(ent.get("state", "")) == "hostile")):
 			var enemy_id: String = str(ent.get("enemy_id", ent.get("id", "rogue_janitor")))
 			var ent_id: String = str(ent.get("id", "%s_%d" % [enemy_id, machines.size()]))
@@ -1342,6 +1395,10 @@ func _finish_transition() -> void:
 
 func load_room(room_id: String) -> void:
 	Engine.time_scale = 1.0
+	if active_boss_controller != null:
+		if is_instance_valid(active_boss_controller):
+			active_boss_controller.queue_free()
+		active_boss_controller = null
 	if current_room_id != "" and current_room_id != room_id:
 		_save_current_room_parked_hosts()
 	current_room_id = room_id

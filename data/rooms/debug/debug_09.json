@@ -1,0 +1,36 @@
+{
+  "id": "debug_09",
+  "zone": "debug",
+  "cell": [0, 4],
+  "exits": {
+    "n": "debug_08",
+    "e": "debug_10"
+  },
+  "grid": [
+    "##############..##############",
+    "#............................#",
+    "#............................#",
+    "#......***...................#",
+    "#......***...................#",
+    "#......***...................#",
+    "#............................#",
+    "#.............................",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "#............................#",
+    "##############################"
+  ],
+  "entities": [
+    { "id": "spawn", "kind": "spawn_cursor", "at": [3, 7] },
+    { "id": "arena_janitor", "kind": "machine", "model": "janitor", "state": "parked", "at": [5, 7] },
+    { "id": "arena_loader", "kind": "machine", "model": "loader", "state": "parked", "at": [5, 9] },
+    { "id": "enemy_janitor_heavy", "kind": "enemy", "enemy_id": "rogue_janitor_heavy", "at": [15, 5] },
+    { "id": "enemy_loader", "kind": "enemy", "enemy_id": "rogue_loader", "at": [20, 5] },
+    { "id": "enemy_sentry", "kind": "enemy", "enemy_id": "rogue_sentry", "at": [24, 10] },
+    { "id": "enemy_medic", "kind": "enemy", "enemy_id": "medic_bot", "at": [18, 10] },
+    { "id": "arena_mite", "kind": "glitch_mite", "at": [12, 10] }
+  ]
+}

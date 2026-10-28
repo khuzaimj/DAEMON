@@ -1,0 +1,51 @@
+{
+  "id": "bootloader",
+  "name": "Bootloader",
+  "zone": "boot",
+  "arena_room": "debug_10",
+  "body": "loader",
+  "reward": "clearance_l1",
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Primary Compression",
+      "active_subsystem": "actuator_1",
+      "slam_interval": 120,
+      "hazards": []
+    },
+    {
+      "phase": 2,
+      "name": "Hydraulic Surge",
+      "active_subsystem": "actuator_2",
+      "slam_interval": 90,
+      "hazards": ["glitch_mite"]
+    },
+    {
+      "phase": 3,
+      "name": "Thermal Redline",
+      "active_subsystem": "actuator_3",
+      "slam_interval": 60,
+      "hazards": ["glitch_mite", "bitrot"]
+    }
+  ],
+  "subsystems": [
+    {
+      "id": "actuator_1",
+      "type": "actuator",
+      "phase": 1,
+      "pos": [9, 4]
+    },
+    {
+      "id": "actuator_2",
+      "type": "actuator",
+      "phase": 2,
+      "pos": [15, 4]
+    },
+    {
+      "id": "actuator_3",
+      "type": "actuator",
+      "phase": 3,
+      "pos": [21, 4]
+    }
+  ]
+}
