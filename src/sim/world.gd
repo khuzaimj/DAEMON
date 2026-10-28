@@ -47,6 +47,8 @@ var current_dock: Dock = null
 var node_pilot_controller: Controller = null
 
 var combat_system: CombatSystem = CombatSystem.new()
+var senses_system: SensesSystem = SensesSystem.new()
+var pathfinding_system: PathfindingSystem = PathfindingSystem.new()
 var defeated_enemies_in_room: Array[String] = []
 var hit_stop_ticks: int = 0
 var screen_shake_ticks: int = 0
@@ -221,7 +223,8 @@ func _physics_process(delta: float) -> void:
 	else:
 		tick_count += 1
 
-	# System 1: senses (P3+)
+	# System 1: senses (P4)
+	_step_senses(delta)
 	# System 2: controllers
 	_step_controllers(tick_count)
 	# System 3: hijack (P3)
@@ -244,6 +247,10 @@ func _physics_process(delta: float) -> void:
 	_record_input_tick()
 	_update_hud()
 	_update_perf_overlay()
+
+func _step_senses(delta: float) -> void:
+	if senses_system != null:
+		senses_system.step(self, tick_count, delta)
 
 func _step_combat(delta: float) -> void:
 	if combat_system != null:
@@ -1192,6 +1199,8 @@ func _finish_transition() -> void:
 		active_room.name = "ActiveRoom"
 		active_room.position = Vector2.ZERO
 		current_room_id = active_room.room_id
+		if pathfinding_system != null:
+			pathfinding_system.setup_room(active_room)
 
 	if player_machine != null and is_instance_valid(player_machine):
 		player_machine.position = machine_slide_target
@@ -1246,6 +1255,8 @@ func load_room(room_id: String) -> void:
 	room_container.add_child(active_room)
 	active_room.setup(data)
 	active_room.position = Vector2.ZERO
+	if pathfinding_system != null:
+		pathfinding_system.setup_room(active_room)
 
 	_clear_room_entities()
 	_setup_player_machine(data)
