@@ -93,6 +93,12 @@ static func start_repair_beam(machine: Machine, data: Dictionary, dir: Vector2) 
 			if AbilityMath.is_point_in_cone(origin, norm_dir, target.global_position, 30.0, range_px):
 				healed_targets.append(target)
 				target.heal(heal_amount)
+		if world_node.entities_container != null:
+			for child: Node in world_node.entities_container.get_children():
+				if is_instance_valid(child) and child is BrokenStructure:
+					var bs: BrokenStructure = child as BrokenStructure
+					if not bs.is_repaired and AbilityMath.is_point_in_cone(origin, norm_dir, bs.global_position, 30.0, range_px):
+						bs.apply_repair(0.5, machine)
 
 static func _break_weld_tiles_in_cone(room: RoomRuntime, origin: Vector2, facing: Vector2, angle_deg: float, range_px: float) -> void:
 	var min_cell: Vector2i = Grid.pixel_to_tile(origin - Vector2(range_px, range_px))

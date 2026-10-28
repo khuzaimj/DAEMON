@@ -5,6 +5,8 @@ signal door_state_changed(door_id: String, is_open: bool)
 
 @export var entity_id: String = "door_01"
 @export var is_open: bool = false
+@export var clearance_level: int = 0
+@export var is_energized: bool = false
 
 var collider: CollisionShape2D = null
 var visual_rect: ColorRect = null
@@ -30,28 +32,50 @@ func _ready() -> void:
 		var rect: ColorRect = ColorRect.new()
 		rect.size = Vector2(16, 16)
 		rect.position = Vector2(-8, -8)
-		rect.color = Color(0.3, 0.4, 0.5, 1.0) # Steel blue-grey door
 		rect.name = "ColorRect"
 		add_child(rect)
 		visual_rect = rect
 
+	_update_visual()
 	set_open(is_open)
 
+func set_energized(energized: bool, player_clearance: int) -> void:
+	is_energized = energized
+	var can_open: bool = is_energized and (player_clearance >= clearance_level)
+	set_open(can_open)
+
 func set_open(open_state: bool) -> void:
+	var changed: bool = (is_open != open_state)
 	is_open = open_state
 	if collider != null:
 		collider.disabled = is_open
-	if visual_rect != null:
-		if is_open:
-			visual_rect.color = Color(0.1, 0.6, 0.3, 0.3) # Translucent open green
-		else:
-			visual_rect.color = Color(0.3, 0.4, 0.5, 1.0) # Solid closed
+	_update_visual()
 
-	if is_inside_tree():
-		var tree: SceneTree = get_tree()
-		if tree != null:
-			var events_node: Node = tree.root.get_node_or_null("Events")
-			if events_node != null:
-				events_node.emit_signal("door_changed", entity_id, is_open)
+	if changed:
+		if is_inside_tree():
+			var tree: SceneTree = get_tree()
+			if tree != null:
+				var events_node: Node = tree.root.get_node_or_null("Events")
+				if events_node != null:
+					events_node.emit_signal("door_changed", entity_id, is_open)
+		door_state_changed.emit(entity_id, is_open)
 
-	door_state_changed.emit(entity_id, is_open)
+func _update_visual() -> void:
+	if visual_rect == null:
+		return
+	if is_open:
+		visual_rect.color = Color(0.1, 0.6, 0.3, 0.25) # Translucent open green
+		return
+
+	# Closed door color depends on clearance level
+	match clearance_level:
+		1:
+			visual_rect.color = Color(0.85, 0.55, 0.1, 1.0) # Amber L1
+		2:
+			visual_rect.color = Color(0.1, 0.75, 0.9, 1.0) # Cyan L2
+		3:
+			visual_rect.color = Color(0.75, 0.2, 0.9, 1.0) # Neon Violet L3
+		4:
+			visual_rect.color = Color(0.95, 0.95, 0.95, 1.0) # Pure White L4
+		_:
+			visual_rect.color = Color(0.3, 0.4, 0.5, 1.0) # Steel blue-grey L0

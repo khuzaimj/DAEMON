@@ -49,6 +49,7 @@ var node_pilot_controller: Controller = null
 var combat_system: CombatSystem = CombatSystem.new()
 var senses_system: SensesSystem = SensesSystem.new()
 var pathfinding_system: PathfindingSystem = PathfindingSystem.new()
+var logic_system: LogicSystem = LogicSystem.new()
 var rng_streams: RngStreams = RngStreams.new(1337)
 var defeated_enemies_in_room: Array[String] = []
 var hit_stop_ticks: int = 0
@@ -293,10 +294,8 @@ func _step_combat(delta: float) -> void:
 		active_boss_controller.step(self, tick_count, delta)
 
 func _step_logic() -> void:
-	if is_inside_tree():
-		for plate_node: Node in get_tree().get_nodes_in_group("plates"):
-			if is_instance_valid(plate_node) and plate_node is Plate:
-				(plate_node as Plate).check_weight()
+	if logic_system != null:
+		logic_system.step(self, tick_count)
 	if active_room != null and is_instance_valid(active_room) and active_room.has_method("step_bitrot"):
 		active_room.call("step_bitrot", self, tick_count)
 
@@ -1045,6 +1044,8 @@ func _clear_transient_projectiles() -> void:
 	projectiles.clear()
 
 func _clear_room_entities() -> void:
+	if logic_system != null:
+		logic_system.clear()
 	_clear_transient_projectiles()
 	if entities_container != null:
 		for child: Node in entities_container.get_children():
@@ -1063,6 +1064,9 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 		for l: Variant in links_val:
 			if l is Dictionary:
 				room_links.append((l as Dictionary).duplicate())
+
+	if logic_system != null:
+		logic_system.setup_room(room_data)
 
 	var entities: Array = room_data.get("entities", [])
 	for ent_variant: Variant in entities:
@@ -1093,21 +1097,87 @@ func _spawn_single_room_entity(ent: Dictionary) -> void:
 		var door: Door = Door.new()
 		door.entity_id = str(ent.get("id", "door_01"))
 		door.position = pos
-		door.is_open = bool(ent.get("is_open", false))
+		door.clearance_level = int(ent.get("clearance", 0))
 		entities_container.add_child(door)
+		if logic_system != null:
+			logic_system.register_entity(door.entity_id, door)
 	elif kind == "plate":
 		var plate: Plate = Plate.new()
 		plate.entity_id = str(ent.get("id", "plate_01"))
 		plate.position = pos
-		plate.weight_threshold = int(ent.get("weight_threshold", 1))
+		plate.weight_threshold = int(ent.get("weight", ent.get("weight_threshold", 1)))
 		plate.is_latched = bool(ent.get("is_latched", false))
 		entities_container.add_child(plate)
+		if logic_system != null:
+			logic_system.register_entity(plate.entity_id, plate)
+	elif kind == "switch":
+		var sw: Switch = Switch.new()
+		sw.entity_id = str(ent.get("id", "switch_01"))
+		sw.position = pos
+		sw.is_on = bool(ent.get("on", false))
+		entities_container.add_child(sw)
+		if logic_system != null:
+			logic_system.register_entity(sw.entity_id, sw)
+	elif kind == "lift":
+		var lift: Lift = Lift.new()
+		lift.entity_id = str(ent.get("id", "lift_01"))
+		lift.position = pos
+		if ent.has("distance"):
+			lift.travel_distance = float(ent["distance"])
+		if ent.has("direction"):
+			var d: Array = ent["direction"]
+			lift.travel_direction = Vector2(float(d[0]), float(d[1]))
+		if ent.has("speed"):
+			lift.travel_speed = float(ent["speed"])
+		entities_container.add_child(lift)
+		if logic_system != null:
+			logic_system.register_entity(lift.entity_id, lift)
+	elif kind == "bridge":
+		var bridge: Bridge = Bridge.new()
+		bridge.entity_id = str(ent.get("id", "bridge_01"))
+		bridge.position = pos
+		if ent.has("size"):
+			var sz: Array = ent["size"]
+			bridge.bridge_size = Vector2(float(sz[0]) * 16.0, float(sz[1]) * 16.0)
+		entities_container.add_child(bridge)
+		if logic_system != null:
+			logic_system.register_entity(bridge.entity_id, bridge)
+	elif kind == "crusher":
+		var crusher: Crusher = Crusher.new()
+		crusher.entity_id = str(ent.get("id", "crusher_01"))
+		crusher.position = pos
+		if ent.has("damage"):
+			crusher.damage = int(ent["damage"])
+		entities_container.add_child(crusher)
+		if logic_system != null:
+			logic_system.register_entity(crusher.entity_id, crusher)
+	elif kind == "beam_gate":
+		var bg: BeamGate = BeamGate.new()
+		bg.entity_id = str(ent.get("id", "beam_gate_01"))
+		bg.position = pos
+		if ent.has("length"):
+			bg.beam_length_px = float(ent["length"]) * 16.0
+		if ent.has("direction"):
+			var bd: Array = ent["direction"]
+			bg.beam_direction = Vector2(float(bd[0]), float(bd[1]))
+		entities_container.add_child(bg)
+		if logic_system != null:
+			logic_system.register_entity(bg.entity_id, bg)
+	elif kind == "broken_structure":
+		var bs: BrokenStructure = BrokenStructure.new()
+		bs.entity_id = str(ent.get("id", "broken_structure_01"))
+		bs.position = pos
+		entities_container.add_child(bs)
+		if logic_system != null:
+			logic_system.register_entity(bs.entity_id, bs)
 	elif kind == "firewall":
 		var fw: Firewall = Firewall.new()
 		fw.entity_id = str(ent.get("id", "firewall_01"))
 		fw.position = pos
 		fw.is_active = bool(ent.get("is_active", true))
 		entities_container.add_child(fw)
+		if logic_system != null:
+			logic_system.register_entity(fw.entity_id, fw)
 	elif kind == "firewall_node":
 		var fwn: FirewallNode = FirewallNode.new()
 		fwn.entity_id = str(ent.get("id", "firewall_node_01"))
@@ -1118,12 +1188,16 @@ func _spawn_single_room_entity(ent: Dictionary) -> void:
 			fwn.barrier_direction = Vector2(float(b_dir[0]), float(b_dir[1]))
 		fwn.is_active = bool(ent.get("is_active", true))
 		entities_container.add_child(fwn)
+		if logic_system != null:
+			logic_system.register_entity(fwn.entity_id, fwn)
 	elif kind == "node":
 		var inode: InfraNode = InfraNode.new()
 		inode.entity_id = str(ent.get("id", "node_01"))
 		inode.position = pos
 		inode.clearance_level = int(ent.get("clearance", 0))
 		entities_container.add_child(inode)
+		if logic_system != null:
+			logic_system.register_entity(inode.entity_id, inode)
 	elif kind == "immune_unit" or kind == "glitch_mite" or kind == "antivirus_sentinel" or kind == "quarantine_pod" or kind == "garbage_collector":
 		var imm_type: String = kind
 		if kind == "immune_unit":

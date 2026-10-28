@@ -27,10 +27,12 @@
     { "id": "spawn", "kind": "spawn_cursor", "at": [26, 7] },
     { "id": "welder_worker", "kind": "machine", "model": "welder", "state": "dormant", "at": [10, 4] },
     { "id": "node_sec", "kind": "node", "at": [8, 10] },
+    { "id": "latch_sec", "kind": "latch" },
     { "id": "firewall_sec", "kind": "firewall", "at": [15, 10], "is_active": true },
     { "id": "vault_courier", "kind": "machine", "model": "courier", "state": "dormant", "at": [17, 10] }
   ],
   "links": [
-    { "from": "node_sec", "to": "firewall_sec" }
+    { "from": "node_sec", "to": "latch_sec", "port": "set" },
+    { "from": "latch_sec", "to": "firewall_sec" }
   ]
 }
