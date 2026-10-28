@@ -5,6 +5,9 @@ extends GutTest
 var world: World = null
 
 func before_each() -> void:
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node != null and game_node.has_method("reset"):
+		game_node.call("reset")
 	var world_scene: PackedScene = load("res://scenes/world.tscn")
 	world = world_scene.instantiate() as World
 	add_child_autofree(world)

@@ -99,14 +99,12 @@ func _process_enemy_death(world: Node2D, enemy: Machine) -> void:
 		if events_node != null and events_node.has_signal("enemy_killed"):
 			events_node.emit_signal("enemy_killed", enemy_id, enemy_pos)
 
-	# Record in world.defeated_enemies_in_room if supported
+	# Record unique entity_id in world.defeated_enemies_in_room (never shared template enemy_id)
 	var def_arr: Variant = world.get("defeated_enemies_in_room")
 	if def_arr is Array:
 		var arr: Array = def_arr as Array
 		if enemy.entity_id != "" and not arr.has(enemy.entity_id):
 			arr.append(enemy.entity_id)
-		if enemy.enemy_id != "" and not arr.has(enemy.enemy_id):
-			arr.append(enemy.enemy_id)
 
 	# Unregister and remove
 	if world.has_method("unregister_machine"):
