@@ -52,11 +52,16 @@ var pathfinding_system: PathfindingSystem = PathfindingSystem.new()
 var logic_system: LogicSystem = LogicSystem.new()
 var rng_streams: RngStreams = RngStreams.new(1337)
 var defeated_enemies_in_room: Array[String] = []
+var taken_pickups_in_room: Array[String] = []
 var hit_stop_ticks: int = 0
 var screen_shake_ticks: int = 0
 var screen_shake_intensity: float = 0.0
 var active_boss_controller: BossController = null
 var screen_shake_offset: Vector2 = Vector2.ZERO
+
+func record_taken_pickup(pickup_id: String) -> void:
+	if pickup_id != "" and not taken_pickups_in_room.has(pickup_id):
+		taken_pickups_in_room.append(pickup_id)
 
 func _ready() -> void:
 	if hijack_fsm != null:
@@ -1264,7 +1269,7 @@ func _spawn_single_room_entity(ent: Dictionary) -> void:
 		var enemy_id: String = str(ent.get("enemy_id", ent.get("id", "rogue_janitor")))
 		var ent_id: String = str(ent.get("id", "%s_%d" % [enemy_id, machines.size()]))
 
-		if defeated_enemies_in_room.has(ent_id) or defeated_enemies_in_room.has(enemy_id):
+		if defeated_enemies_in_room.has(ent_id):
 			return
 
 		var enemy_data: Dictionary = {}
@@ -1394,6 +1399,31 @@ func _spawn_single_room_entity(ent: Dictionary) -> void:
 				m.apply_body_data(b_dict)
 			else:
 				m.body_id = model_id
+	elif kind == "progression_pickup" or kind == "pickup":
+		var ent_id: String = str(ent.get("id", ""))
+		if not taken_pickups_in_room.has(ent_id):
+			var p: ProgressionPickup = ProgressionPickup.new()
+			p.entity_id = ent_id
+			p.pickup_kind = str(ent.get("pickup_kind", ent.get("pickup_type", ent.get("kind_type", "integrity_chip"))))
+			p.amount = int(ent.get("amount", 1))
+			p.clearance_level = int(ent.get("clearance", 1))
+			p.position = pos
+			entities_container.add_child(p)
+	elif kind == "log" or kind == "log_pickup":
+		var ent_id: String = str(ent.get("id", ""))
+		var log_id: String = str(ent.get("log_id", ent.get("id", "")))
+		var game_node: Node = get_node_or_null("/root/Game")
+		var is_taken: bool = taken_pickups_in_room.has(ent_id)
+		if game_node != null and (game_node.get("logs") as Array).has(log_id):
+			is_taken = true
+		if not is_taken:
+			var lp: LogPickup = LogPickup.new()
+			lp.entity_id = ent_id
+			lp.log_id = log_id
+			lp.log_title = str(ent.get("title", ""))
+			lp.log_text = str(ent.get("text", ""))
+			lp.position = pos
+			entities_container.add_child(lp)
 
 func start_transition(next_room_id: String, dir: Vector2) -> void:
 	if is_transitioning:
@@ -1488,6 +1518,8 @@ func _finish_transition() -> void:
 	if game_node != null:
 		game_node.set("is_transitioning", false)
 		game_node.set("current_room_id", current_room_id)
+		if game_node.has_method("discover_room"):
+			game_node.call("discover_room", current_room_id)
 
 	var events_node: Node = get_node_or_null("/root/Events")
 	if events_node != null:
@@ -1546,6 +1578,10 @@ func load_room(room_id: String) -> void:
 	var game_node: Node = get_node_or_null("/root/Game")
 	if game_node != null:
 		game_node.set("current_room_id", current_room_id)
+		if game_node.has_method("discover_room"):
+			game_node.call("discover_room", current_room_id)
+		if game_node.has_method("discover_room"):
+			game_node.call("discover_room", current_room_id)
 
 	var events_node: Node = get_node_or_null("/root/Events")
 	if events_node != null:
