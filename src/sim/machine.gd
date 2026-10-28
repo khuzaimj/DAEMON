@@ -41,13 +41,13 @@ var enemy_data: Dictionary = {}
 var enemy_id: String = ""
 var faction: String = "neutral"
 
-@onready var collider: CollisionShape2D = $Collider
-@onready var sprite: AnimatedSprite2D = $Sprite
-@onready var glow: AnimatedSprite2D = $Glow
-@onready var hurt_box: Area2D = $HurtBox
-@onready var hurt_shape: CollisionShape2D = $HurtBox/CollisionShape2D
-@onready var abilities: AbilitiesRunner = $Abilities
-@onready var visual_rect: ColorRect = $PlaceholderVisual
+@onready var collider: CollisionShape2D = get_node_or_null("Collider") as CollisionShape2D
+@onready var sprite: AnimatedSprite2D = get_node_or_null("Sprite") as AnimatedSprite2D
+@onready var glow: AnimatedSprite2D = get_node_or_null("Glow") as AnimatedSprite2D
+@onready var hurt_box: Area2D = get_node_or_null("HurtBox") as Area2D
+@onready var hurt_shape: CollisionShape2D = get_node_or_null("HurtBox/CollisionShape2D") as CollisionShape2D
+@onready var abilities: AbilitiesRunner = get_node_or_null("Abilities") as AbilitiesRunner
+@onready var visual_rect: ColorRect = get_node_or_null("PlaceholderVisual") as ColorRect
 
 func _ready() -> void:
 	if entity_id.is_empty():

@@ -14,6 +14,8 @@ var knockback_force: float = 1.0
 var proj_color: Color = Color(0.2, 0.9, 1.0)
 var radius: float = 2.5
 var is_active: bool = true
+var seeking_target: Node2D = null
+var seek_turn_rate: float = 0.0
 
 func _ready() -> void:
 	# Layer 9: projectile (256)
@@ -48,6 +50,14 @@ func _draw() -> void:
 func step(delta: float) -> void:
 	if not is_active:
 		return
+	if seeking_target != null and is_instance_valid(seeking_target) and seek_turn_rate > 0.0:
+		var target_pos: Vector2 = seeking_target.global_position
+		var desired_dir: Vector2 = (target_pos - position).normalized()
+		var cur_speed: float = velocity.length()
+		var cur_dir: Vector2 = velocity.normalized()
+		var new_dir: Vector2 = cur_dir.lerp(desired_dir, clampf(seek_turn_rate * delta, 0.0, 1.0)).normalized()
+		velocity = new_dir * cur_speed
+
 	var move_step: Vector2 = velocity * delta
 	position += move_step
 	distance_traveled += move_step.length()

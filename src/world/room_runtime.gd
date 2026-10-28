@@ -192,7 +192,7 @@ func set_tile_at(cell: Vector2i, new_glyph: String, rebuild_collision: bool = tr
 	grid[cell.y] = row.substr(0, cell.x) + new_glyph + row.substr(cell.x + 1)
 	
 	if _tilemap_layer != null:
-		var glyph_order: Array[String] = [".", "#", ":", "o", "~", "^", ",", "X", "%"]
+		var glyph_order: Array[String] = [".", "#", ":", "o", "~", "^", ",", "X", "%", "*"]
 		var idx: int = glyph_order.find(new_glyph)
 		if idx == -1:
 			idx = 0
@@ -241,3 +241,51 @@ func break_tile_at(pixel_pos: Vector2, verb: String) -> bool:
 		set_tile_at(cell, ".", true)
 		return true
 	return false
+
+func step_bitrot(world: Node, tick: int) -> void:
+	if grid.is_empty() or world == null or not is_instance_valid(world):
+		return
+	if tick % 60 == 0:
+		var machines_val: Variant = world.get("machines")
+		if machines_val is Array:
+			for m_node: Variant in (machines_val as Array):
+				if not is_instance_valid(m_node) or not (m_node is Machine):
+					continue
+				var m: Machine = m_node as Machine
+				if m.state == null or m.state.current_integrity <= 0:
+					continue
+				if m.body_id == "janitor" or m.passives.has("bitrot_immune") or m.passives.has("immune_bitrot"):
+					continue
+				var terr: Dictionary = terrain_at(m.position)
+				if terr.get("hazard", "") == "bitrot" or terr.get("name", "") == "bitrot":
+					m.take_damage(1, "kinetic")
+
+	if tick % 120 == 0:
+		_step_bitrot_spread(world)
+
+func _step_bitrot_spread(world: Node) -> void:
+	var bitrot_cells: Array[Vector2i] = []
+	for y: int in range(grid.size()):
+		var row: String = grid[y]
+		for x: int in range(row.length()):
+			if row[x] == "*":
+				bitrot_cells.append(Vector2i(x, y))
+	if bitrot_cells.is_empty():
+		return
+
+	var rng: RandomNumberGenerator = null
+	var rng_streams: Variant = world.get("rng_streams")
+	if rng_streams != null and rng_streams is RngStreams:
+		rng = (rng_streams as RngStreams).get_stream("combat")
+
+	var spread_count: int = mini(2, bitrot_cells.size())
+	var dirs: Array[Vector2i] = [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]
+	for i: int in range(spread_count):
+		var source_idx: int = rng.randi_range(0, bitrot_cells.size() - 1) if rng != null else randi() % bitrot_cells.size()
+		var src_cell: Vector2i = bitrot_cells[source_idx]
+		var dir_idx: int = rng.randi_range(0, dirs.size() - 1) if rng != null else randi() % dirs.size()
+		var target_cell: Vector2i = src_cell + dirs[dir_idx]
+		if Grid.is_in_room_bounds(target_cell) and target_cell.y < grid.size() and target_cell.x < grid[target_cell.y].length():
+			var cur_glyph: String = grid[target_cell.y][target_cell.x]
+			if cur_glyph == "." or cur_glyph == ",":
+				set_tile_at(target_cell, "*", false)

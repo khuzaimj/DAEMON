@@ -120,6 +120,8 @@ func get_effective_pin(park_pos: Vector2, facing: Vector2) -> Vector2:
 static func is_candidate_valid(candidate: Dictionary, origin_pos: Vector2, max_range_px: float, clearance: int) -> bool:
 	if bool(candidate.get("is_immune_unit", false)) or bool(candidate.get("is_boss_body", false)):
 		return false
+	if bool(candidate.get("is_trapped", false)):
+		return false
 	if not bool(candidate.get("has_los", true)):
 		return false
 	var cand_state: String = str(candidate.get("state", "dormant"))

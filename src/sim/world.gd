@@ -266,6 +266,8 @@ func _step_logic() -> void:
 		for plate_node: Node in get_tree().get_nodes_in_group("plates"):
 			if is_instance_valid(plate_node) and plate_node is Plate:
 				(plate_node as Plate).check_weight()
+	if active_room != null and is_instance_valid(active_room) and active_room.has_method("step_bitrot"):
+		active_room.call("step_bitrot", self, tick_count)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventKey):
@@ -821,6 +823,7 @@ func _get_hijack_candidates(origin_pos: Vector2) -> Array[Dictionary]:
 			"clearance": m.clearance_level,
 			"is_immune_unit": m.is_immune_unit,
 			"is_boss_body": m.is_boss_body,
+			"is_trapped": m.get_meta("quarantined", false),
 			"has_los": has_los
 		})
 
@@ -1072,12 +1075,35 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 			fw.position = pos
 			fw.is_active = bool(ent.get("is_active", true))
 			entities_container.add_child(fw)
+		elif kind == "firewall_node":
+			var fwn: FirewallNode = FirewallNode.new()
+			fwn.entity_id = str(ent.get("id", "firewall_node_01"))
+			fwn.position = pos
+			fwn.barrier_length_px = float(ent.get("barrier_length", 48.0))
+			var b_dir: Array = ent.get("barrier_direction", [0, 1])
+			if b_dir.size() >= 2:
+				fwn.barrier_direction = Vector2(float(b_dir[0]), float(b_dir[1]))
+			fwn.is_active = bool(ent.get("is_active", true))
+			entities_container.add_child(fwn)
 		elif kind == "node":
 			var inode: InfraNode = InfraNode.new()
 			inode.entity_id = str(ent.get("id", "node_01"))
 			inode.position = pos
 			inode.clearance_level = int(ent.get("clearance", 0))
 			entities_container.add_child(inode)
+		elif kind == "immune_unit" or kind == "glitch_mite" or kind == "antivirus_sentinel" or kind == "quarantine_pod" or kind == "garbage_collector":
+			var imm_type: String = kind
+			if kind == "immune_unit":
+				imm_type = str(ent.get("immune_type", ent.get("enemy_id", "glitch_mite")))
+			var ent_id: String = str(ent.get("id", "%s_%d" % [imm_type, machines.size()]))
+			if defeated_enemies_in_room.has(ent_id):
+				continue
+			var imm: ImmuneUnit = ImmuneUnit.new(imm_type)
+			imm.entity_id = ent_id
+			imm.position = pos
+			imm.current_room = active_room
+			entities_container.add_child(imm)
+			register_machine(imm)
 		elif kind == "enemy" or (kind == "machine" and (ent.has("enemy_id") or str(ent.get("state", "")) == "hostile")):
 			var enemy_id: String = str(ent.get("enemy_id", ent.get("id", "rogue_janitor")))
 			var ent_id: String = str(ent.get("id", "%s_%d" % [enemy_id, machines.size()]))
