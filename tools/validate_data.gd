@@ -176,6 +176,15 @@ func _init() -> void:
 
 			# Validate border openings vs declared exits
 			var exits: Dictionary = room_dict.get("exits", {})
+
+			# Validate room logic graph (P5.1)
+			var room_entities: Array = room_dict.get("entities", [])
+			var room_links: Array = room_dict.get("links", [])
+			var logic_errors: Array[String] = LogicGraph.validate(room_entities, room_links)
+			for err_msg: String in logic_errors:
+				printerr("ERROR: Room %s logic error: %s in %s" % [room_id, err_msg, path])
+				error_count += 1
+
 			# North border (row 0)
 			var row0: String = str(rows[0])
 			for x: int in range(row0.length()):

@@ -274,17 +274,20 @@ Pathfinding uses Godot's built-in `AStarGrid2D`, one per room and size class, bu
 }
 ```
 
-**Logic elements** (all evaluate once per tick; cycles resolve with a one-tick delay):
+**Logic elements** (all evaluate once per tick in System 6; cycles resolve with a one-tick delay):
 
-| Kind | Input | Output |
-|---|---|---|
-| plate | weight on it >= threshold | active while loaded |
-| switch | interact or hit | toggles |
-| latch | set / reset | stays on; `persist: true` saves it |
-| timer | trigger | on for N seconds |
-| and, or, not | signals | signal |
-| door, lift, bridge, crusher, beam gate | signal | opens or moves; doors may need clearance |
-| node | Cursor hops in | active while the Cursor is inside; operates remote machinery |
+| Kind | Input | Output | Params |
+|---|---|---|---|
+| plate | weight on it >= threshold | active while loaded | `weight` (int >= 1, default 1) |
+| switch | interact or hit | toggles | `on` (bool, default false) |
+| latch | set / reset | stays on; `persist: true` saves it | `on` (bool), `persist` (bool) |
+| timer | trigger | on for N seconds | `duration` (float seconds > 0) |
+| and, or, not | signals | signal | none |
+| door, lift, bridge, crusher, beam gate | signal | opens or moves; doors may need clearance | clearance (door, int 0-4) |
+| node | Cursor hops in | active while Cursor inside | none |
+| broken_structure | repair beam | repaired / latch on (always persistent) | none |
+
+Links connect elements: `{ "from": "id1", "to": "id2", "port": "in" }`. Port is optional: defaults to `in` for most elements, or `set` for latches. Latch accepts ports `set` and `reset` (reset wins on conflict).
 
 **Solver-bot script** (`data/rooms/boot/boot_01.solve`, one command per line). The bot drives a `ScriptController`. `goto` follows an `AStarGrid2D` path for the current body's size and medium, closed-loop (it re-aims every tick).
 
