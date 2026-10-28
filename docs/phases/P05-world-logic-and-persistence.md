@@ -143,3 +143,14 @@
 **Entity semantics stay in the entity.** The graph only says "energized". Recommended: door opens when energized and `Game.clearance >= door.clearance` (an unlinked door is energized by default); firewall is disabled while energized. Record each choice in DECISIONS.
 
 **Gemini checklist for P5.1:** (a) wire the above; (b) call `LogicGraph.validate(room.entities, room.links)` for every room in `tools/validate_data.gd`; (c) add `port` and the params to ARCH §2.6; (d) append to DECISIONS: one-tick delay goes on the loop-closing link found by depth-first search from sorted ids (authoring order never matters); empty gates are false, NOT of several inputs is NOR; latch reset beats set; timer restarts on a rising edge and lasts exactly N ticks; switch toggles at most once per tick; edges reference sources by index so puzzle loops never become RefCounted cycles (a regression test guards this); (e) STATE.md: `Last task: P5.1 core delivered`, `Next task: P5.1 integration`.
+
+---
+
+# P05 — World logic and persistence · Report
+Done: P5.1, P5.2, P5.3, P5.4, P5.5 · Commits: 11 · Tests: 161 passing (1198 asserts) · check.ps1 -Full: green
+Evidence: shots/debug_11.png, shots/debug_12.png, tests/unit/test_save_system.gd (round-trip equality verified)
+Deviations from the plan: Pure core SaveData and TerrainRules created in src/core/ per G3 to prevent Godot node file bloat.
+Known issues: none
+Playtest: Run `& build/Daemon.exe -- --room debug_11` to test plates, switches, latches, timers, conveyors, collapsing floors, and clearance doors; navigate east to `debug_12` for progression pickups and dock save/load testing.
+Ask: accept, or changes?
+
