@@ -97,6 +97,26 @@ func test_claw_damage_and_suction_pull() -> void:
 	var end_dist: float = crawler.position.distance_to(far_target.position)
 	assert_lt(end_dist, start_dist, "Suction should pull target closer")
 
+	# Test faction filtering on claw
+	var hostile_crawler: Machine = machine_scene.instantiate() as Machine
+	hostile_crawler.faction = "hostile"
+	hostile_crawler.position = Vector2(200, 200)
+	hostile_crawler.facing = Vector2.RIGHT
+	world.entities_container.add_child(hostile_crawler)
+	world.machines.append(hostile_crawler)
+
+	var hostile_ally: Machine = machine_scene.instantiate() as Machine
+	hostile_ally.faction = "hostile"
+	hostile_ally.position = Vector2(212, 200)
+	world.entities_container.add_child(hostile_ally)
+	world.machines.append(hostile_ally)
+
+	var ally_hp: int = hostile_ally.state.current_integrity
+	MeleeAbilities.start_claw(hostile_crawler, {
+		"params": { "arc": 60.0, "radius": 18.0, "damage": 2, "knockback": 1.0 }
+	}, Vector2.RIGHT)
+	assert_eq(hostile_ally.state.current_integrity, ally_hp, "Hostile claw should not damage hostile ally")
+
 func test_knockback_resist_passive() -> void:
 	var machine_scene: PackedScene = load("res://scenes/machine.tscn")
 	var normal_machine: Machine = machine_scene.instantiate() as Machine

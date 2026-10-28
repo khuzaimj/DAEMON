@@ -49,6 +49,7 @@ var node_pilot_controller: Controller = null
 var combat_system: CombatSystem = CombatSystem.new()
 var senses_system: SensesSystem = SensesSystem.new()
 var pathfinding_system: PathfindingSystem = PathfindingSystem.new()
+var rng_streams: RngStreams = RngStreams.new(1337)
 var defeated_enemies_in_room: Array[String] = []
 var hit_stop_ticks: int = 0
 var screen_shake_ticks: int = 0
@@ -156,15 +157,46 @@ func trigger_screen_shake(amount_px: float = 2.0, duration_ticks: int = 6) -> vo
 
 func respawn_room_enemies() -> void:
 	defeated_enemies_in_room.clear()
-	if active_room != null and active_room.room_data.has("entities"):
-		_spawn_room_entities(active_room.room_data["entities"])
+	if active_room == null or not active_room.room_data.has("entities"):
+		return
+	var entities: Array = active_room.room_data.get("entities", [])
+	for ent_variant: Variant in entities:
+		if not (ent_variant is Dictionary):
+			continue
+		var ent: Dictionary = ent_variant as Dictionary
+		var kind: String = str(ent.get("kind", ""))
+		var is_enemy: bool = (kind == "enemy" or (kind == "machine" and (ent.has("enemy_id") or str(ent.get("state", "")) == "hostile")))
+		var is_immune: bool = (kind in ["glitch_mite", "antivirus_sentinel", "quarantine_pod", "garbage_collector"])
+		if not is_enemy and not is_immune:
+			continue
+		var ent_id: String = str(ent.get("id", ""))
+		var already_alive: bool = false
+		for m: Machine in machines:
+			if is_instance_valid(m) and m.entity_id == ent_id:
+				already_alive = true
+				break
+		if already_alive:
+			continue
+		if is_immune and is_instance_valid(entities_container):
+			for child: Node in entities_container.get_children():
+				if is_instance_valid(child) and child is ImmuneUnit and (child as ImmuneUnit).entity_id == ent_id:
+					already_alive = true
+					break
+		if already_alive:
+			continue
+		_spawn_single_room_entity(ent)
 
 func _process(_delta: float) -> void:
+	# Visual hit-stop frame hook
+	if hit_stop_ticks > 0:
+		hit_stop_ticks -= 1
+
 	# Screen shake offset in integer pixels
 	if screen_shake_ticks > 0:
 		screen_shake_ticks -= 1
-		var ox: float = round(randf_range(-screen_shake_intensity, screen_shake_intensity))
-		var oy: float = round(randf_range(-screen_shake_intensity, screen_shake_intensity))
+		var vfx_rng: RandomNumberGenerator = rng_streams.get_stream("vfx")
+		var ox: float = round(vfx_rng.randf_range(-screen_shake_intensity, screen_shake_intensity))
+		var oy: float = round(vfx_rng.randf_range(-screen_shake_intensity, screen_shake_intensity))
 		screen_shake_offset = Vector2(ox, oy)
 		position = screen_shake_offset
 	elif screen_shake_offset != Vector2.ZERO:
@@ -216,10 +248,6 @@ func _physics_process(delta: float) -> void:
 
 	var game_node: Node = get_node_or_null("/root/Game")
 	if game_node != null and game_node.get("paused") == true:
-		return
-
-	if hit_stop_ticks > 0:
-		hit_stop_ticks -= 1
 		return
 
 	var t0: int = Time.get_ticks_usec()
@@ -823,7 +851,7 @@ func _get_hijack_candidates(origin_pos: Vector2) -> Array[Dictionary]:
 		candidates.append({
 			"id": m.entity_id,
 			"kind": "machine",
-			"model": m.body_id,
+			"model": "" if m is Subsystem else m.body_id,
 			"state": m.operational_state,
 			"is_open": m.is_open(),
 			"pos": cand_pos,
@@ -984,9 +1012,6 @@ func _step_movement(delta: float) -> void:
 	for c: Crate in crates:
 		if is_instance_valid(c):
 			c.step_movement(delta)
-	for p: Projectile in projectiles:
-		if is_instance_valid(p):
-			p.step(delta)
 
 func _step_world() -> void:
 	if player_machine == null or not is_instance_valid(player_machine):
@@ -1041,256 +1066,257 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 
 	var entities: Array = room_data.get("entities", [])
 	for ent_variant: Variant in entities:
-		if not (ent_variant is Dictionary):
-			continue
-		var ent: Dictionary = ent_variant as Dictionary
-		var kind: String = str(ent.get("kind", ""))
-		var at: Array = ent.get("at", [0, 0])
-		var pos: Vector2 = Vector2(0, 0)
-		if at.size() >= 2:
-			pos = Vector2(float(at[0]) * 16.0 + 8.0, float(at[1]) * 16.0 + 8.0)
+		if ent_variant is Dictionary:
+			_spawn_single_room_entity(ent_variant as Dictionary)
 
-		if kind == "crate":
-			var crate: Crate = Crate.new()
-			crate.position = pos
-			crate.weight = int(ent.get("weight", 1))
-			crate.size_class = str(ent.get("size", "m"))
-			entities_container.add_child(crate)
-			if not crates.has(crate):
-				crates.append(crate)
-		elif kind == "dock":
-			var dock: Dock = Dock.new()
-			dock.entity_id = str(ent.get("id", "dock_01"))
-			dock.position = pos
-			entities_container.add_child(dock)
-		elif kind == "door":
-			var door: Door = Door.new()
-			door.entity_id = str(ent.get("id", "door_01"))
-			door.position = pos
-			door.is_open = bool(ent.get("is_open", false))
-			entities_container.add_child(door)
-		elif kind == "plate":
-			var plate: Plate = Plate.new()
-			plate.entity_id = str(ent.get("id", "plate_01"))
-			plate.position = pos
-			plate.weight_threshold = int(ent.get("weight_threshold", 1))
-			plate.is_latched = bool(ent.get("is_latched", false))
-			entities_container.add_child(plate)
-		elif kind == "firewall":
-			var fw: Firewall = Firewall.new()
-			fw.entity_id = str(ent.get("id", "firewall_01"))
-			fw.position = pos
-			fw.is_active = bool(ent.get("is_active", true))
-			entities_container.add_child(fw)
-		elif kind == "firewall_node":
-			var fwn: FirewallNode = FirewallNode.new()
-			fwn.entity_id = str(ent.get("id", "firewall_node_01"))
-			fwn.position = pos
-			fwn.barrier_length_px = float(ent.get("barrier_length", 48.0))
-			var b_dir: Array = ent.get("barrier_direction", [0, 1])
-			if b_dir.size() >= 2:
-				fwn.barrier_direction = Vector2(float(b_dir[0]), float(b_dir[1]))
-			fwn.is_active = bool(ent.get("is_active", true))
-			entities_container.add_child(fwn)
-		elif kind == "node":
-			var inode: InfraNode = InfraNode.new()
-			inode.entity_id = str(ent.get("id", "node_01"))
-			inode.position = pos
-			inode.clearance_level = int(ent.get("clearance", 0))
-			entities_container.add_child(inode)
-		elif kind == "immune_unit" or kind == "glitch_mite" or kind == "antivirus_sentinel" or kind == "quarantine_pod" or kind == "garbage_collector":
-			var imm_type: String = kind
-			if kind == "immune_unit":
-				imm_type = str(ent.get("immune_type", ent.get("enemy_id", "glitch_mite")))
-			var ent_id: String = str(ent.get("id", "%s_%d" % [imm_type, machines.size()]))
-			if defeated_enemies_in_room.has(ent_id):
-				continue
-			var imm: ImmuneUnit = ImmuneUnit.new(imm_type)
-			imm.entity_id = ent_id
-			imm.position = pos
-			imm.current_room = active_room
-			entities_container.add_child(imm)
-			register_machine(imm)
-		elif kind == "boss":
-			var boss_id: String = str(ent.get("boss_id", ent.get("id", "bootloader")))
-			var boss_data: Dictionary = {}
-			var data_node: Node = get_node_or_null("/root/Data")
+func _spawn_single_room_entity(ent: Dictionary) -> void:
+	var kind: String = str(ent.get("kind", ""))
+	var at: Array = ent.get("at", [0, 0])
+	var pos: Vector2 = Vector2(0, 0)
+	if at.size() >= 2:
+		pos = Vector2(float(at[0]) * 16.0 + 8.0, float(at[1]) * 16.0 + 8.0)
+
+	if kind == "crate":
+		var crate: Crate = Crate.new()
+		crate.position = pos
+		crate.weight = int(ent.get("weight", 1))
+		crate.size_class = str(ent.get("size", "m"))
+		entities_container.add_child(crate)
+		if not crates.has(crate):
+			crates.append(crate)
+	elif kind == "dock":
+		var dock: Dock = Dock.new()
+		dock.entity_id = str(ent.get("id", "dock_01"))
+		dock.position = pos
+		entities_container.add_child(dock)
+	elif kind == "door":
+		var door: Door = Door.new()
+		door.entity_id = str(ent.get("id", "door_01"))
+		door.position = pos
+		door.is_open = bool(ent.get("is_open", false))
+		entities_container.add_child(door)
+	elif kind == "plate":
+		var plate: Plate = Plate.new()
+		plate.entity_id = str(ent.get("id", "plate_01"))
+		plate.position = pos
+		plate.weight_threshold = int(ent.get("weight_threshold", 1))
+		plate.is_latched = bool(ent.get("is_latched", false))
+		entities_container.add_child(plate)
+	elif kind == "firewall":
+		var fw: Firewall = Firewall.new()
+		fw.entity_id = str(ent.get("id", "firewall_01"))
+		fw.position = pos
+		fw.is_active = bool(ent.get("is_active", true))
+		entities_container.add_child(fw)
+	elif kind == "firewall_node":
+		var fwn: FirewallNode = FirewallNode.new()
+		fwn.entity_id = str(ent.get("id", "firewall_node_01"))
+		fwn.position = pos
+		fwn.barrier_length_px = float(ent.get("barrier_length", 48.0))
+		var b_dir: Array = ent.get("barrier_direction", [0, 1])
+		if b_dir.size() >= 2:
+			fwn.barrier_direction = Vector2(float(b_dir[0]), float(b_dir[1]))
+		fwn.is_active = bool(ent.get("is_active", true))
+		entities_container.add_child(fwn)
+	elif kind == "node":
+		var inode: InfraNode = InfraNode.new()
+		inode.entity_id = str(ent.get("id", "node_01"))
+		inode.position = pos
+		inode.clearance_level = int(ent.get("clearance", 0))
+		entities_container.add_child(inode)
+	elif kind == "immune_unit" or kind == "glitch_mite" or kind == "antivirus_sentinel" or kind == "quarantine_pod" or kind == "garbage_collector":
+		var imm_type: String = kind
+		if kind == "immune_unit":
+			imm_type = str(ent.get("immune_type", ent.get("enemy_id", "glitch_mite")))
+		var ent_id: String = str(ent.get("id", "%s_%d" % [imm_type, machines.size()]))
+		if defeated_enemies_in_room.has(ent_id):
+			return
+		var imm: ImmuneUnit = ImmuneUnit.new(imm_type)
+		imm.entity_id = ent_id
+		imm.position = pos
+		imm.current_room = active_room
+		entities_container.add_child(imm)
+		register_machine(imm)
+	elif kind == "boss":
+		var boss_id: String = str(ent.get("boss_id", ent.get("id", "bootloader")))
+		var boss_data: Dictionary = {}
+		var data_node: Node = get_node_or_null("/root/Data")
+		if data_node != null and data_node.has_method("get_json"):
+			var raw_b: Variant = data_node.call("get_json", "res://data/bosses/%s.json" % boss_id)
+			if raw_b is Dictionary:
+				boss_data = raw_b
+		if boss_data.is_empty() and FileAccess.file_exists("res://data/bosses/%s.json" % boss_id):
+			var fb: FileAccess = FileAccess.open("res://data/bosses/%s.json" % boss_id, FileAccess.READ)
+			if fb != null:
+				var jb: JSON = JSON.new()
+				if jb.parse(fb.get_as_text()) == OK and jb.data is Dictionary:
+					boss_data = jb.data as Dictionary
+
+		var boss_scene: PackedScene = load("res://scenes/machine.tscn")
+		if boss_scene != null:
+			var boss_m: Machine = boss_scene.instantiate() as Machine
+			boss_m.position = pos
+			boss_m.current_room = active_room
+			boss_m.entity_id = boss_id
+			boss_m.body_id = str(boss_data.get("body", "loader"))
+			boss_m.is_boss_body = true
+			boss_m.operational_state = "hostile"
+			boss_m.faction = "hostile"
+			boss_m.size_class = "l"
+			entities_container.add_child(boss_m)
+			register_machine(boss_m)
+
+			var b_ctrl: BossController = BossController.new()
+			b_ctrl.name = "BossController"
+			b_ctrl.setup(boss_id, boss_data, boss_m)
+			add_child(b_ctrl)
+			active_boss_controller = b_ctrl
+	elif kind == "subsystem":
+		var sub_id: String = str(ent.get("subsystem_id", ent.get("id", "actuator_1")))
+		var sub_type: String = str(ent.get("type", "actuator"))
+		var target_ph: int = int(ent.get("target_phase", ent.get("phase", 1)))
+		var sub: Subsystem = Subsystem.new(sub_id, sub_type)
+		sub.position = pos
+		sub.target_phase = target_ph
+		sub.current_room = active_room
+		entities_container.add_child(sub)
+		register_machine(sub)
+		if active_boss_controller != null:
+			active_boss_controller.register_subsystem(sub)
+	elif kind == "enemy" or (kind == "machine" and (ent.has("enemy_id") or str(ent.get("state", "")) == "hostile")):
+		var enemy_id: String = str(ent.get("enemy_id", ent.get("id", "rogue_janitor")))
+		var ent_id: String = str(ent.get("id", "%s_%d" % [enemy_id, machines.size()]))
+
+		if defeated_enemies_in_room.has(ent_id) or defeated_enemies_in_room.has(enemy_id):
+			return
+
+		var enemy_data: Dictionary = {}
+		var data_node: Node = get_node_or_null("/root/Data")
+		if data_node != null and data_node.has_method("get_json"):
+			var raw_enemy: Variant = data_node.call("get_json", "res://data/enemies/%s.json" % enemy_id)
+			if raw_enemy is Dictionary:
+				enemy_data = raw_enemy
+		if enemy_data.is_empty() and FileAccess.file_exists("res://data/enemies/%s.json" % enemy_id):
+			var f: FileAccess = FileAccess.open("res://data/enemies/%s.json" % enemy_id, FileAccess.READ)
+			if f != null:
+				var j: JSON = JSON.new()
+				if j.parse(f.get_as_text()) == OK and j.data is Dictionary:
+					enemy_data = j.data as Dictionary
+
+		var body_model: String = str(enemy_data.get("body", ent.get("model", "janitor")))
+		var machine_scene: PackedScene = load("res://scenes/machine.tscn")
+		if machine_scene != null:
+			var m: Machine = machine_scene.instantiate() as Machine
+			m.position = pos
+			m.current_room = active_room
+			m.entity_id = ent_id
+			m.enemy_id = enemy_id
+			m.enemy_data = enemy_data
+			m.operational_state = "hostile"
+			m.faction = "hostile"
+
+			var b_dict: Dictionary = {}
 			if data_node != null and data_node.has_method("get_json"):
-				var raw_b: Variant = data_node.call("get_json", "res://data/bosses/%s.json" % boss_id)
+				var raw_b: Variant = data_node.call("get_json", "res://data/bodies/%s.json" % body_model)
 				if raw_b is Dictionary:
-					boss_data = raw_b
-			if boss_data.is_empty() and FileAccess.file_exists("res://data/bosses/%s.json" % boss_id):
-				var fb: FileAccess = FileAccess.open("res://data/bosses/%s.json" % boss_id, FileAccess.READ)
+					b_dict = raw_b
+			if b_dict.is_empty() and FileAccess.file_exists("res://data/bodies/%s.json" % body_model):
+				var fb: FileAccess = FileAccess.open("res://data/bodies/%s.json" % body_model, FileAccess.READ)
 				if fb != null:
 					var jb: JSON = JSON.new()
 					if jb.parse(fb.get_as_text()) == OK and jb.data is Dictionary:
-						boss_data = jb.data as Dictionary
+						b_dict = jb.data as Dictionary
+			if not b_dict.is_empty():
+				m.apply_body_data(b_dict)
 
-			var boss_scene: PackedScene = load("res://scenes/machine.tscn")
-			if boss_scene != null:
-				var boss_m: Machine = boss_scene.instantiate() as Machine
-				boss_m.position = pos
-				boss_m.current_room = active_room
-				boss_m.entity_id = boss_id
-				boss_m.body_id = str(boss_data.get("body", "loader"))
-				boss_m.is_boss_body = true
-				boss_m.operational_state = "hostile"
-				boss_m.faction = "hostile"
-				boss_m.size_class = "l"
-				entities_container.add_child(boss_m)
-				register_machine(boss_m)
+			if enemy_data.has("integrity"):
+				var integ: int = int(enemy_data["integrity"])
+				m.state.max_integrity = integ
+				m.state.current_integrity = integ
+			if enemy_data.has("open_threshold"):
+				m.state.open_threshold = float(enemy_data["open_threshold"])
 
-				var b_ctrl: BossController = BossController.new()
-				b_ctrl.name = "BossController"
-				b_ctrl.setup(boss_id, boss_data, boss_m)
-				add_child(b_ctrl)
-				active_boss_controller = b_ctrl
-		elif kind == "subsystem":
-			var sub_id: String = str(ent.get("subsystem_id", ent.get("id", "actuator_1")))
-			var sub_type: String = str(ent.get("type", "actuator"))
-			var target_ph: int = int(ent.get("target_phase", ent.get("phase", 1)))
-			var sub: Subsystem = Subsystem.new(sub_id, sub_type)
-			sub.position = pos
-			sub.target_phase = target_ph
-			sub.current_room = active_room
-			entities_container.add_child(sub)
-			register_machine(sub)
-			if active_boss_controller != null:
-				active_boss_controller.register_subsystem(sub)
-		elif kind == "enemy" or (kind == "machine" and (ent.has("enemy_id") or str(ent.get("state", "")) == "hostile")):
-			var enemy_id: String = str(ent.get("enemy_id", ent.get("id", "rogue_janitor")))
-			var ent_id: String = str(ent.get("id", "%s_%d" % [enemy_id, machines.size()]))
-
-			if defeated_enemies_in_room.has(ent_id) or defeated_enemies_in_room.has(enemy_id):
-				continue
-
-			var enemy_data: Dictionary = {}
-			var data_node: Node = get_node_or_null("/root/Data")
+			var ai_id: String = str(enemy_data.get("ai", "melee_swarmer"))
+			var ai_preset: Dictionary = {}
 			if data_node != null and data_node.has_method("get_json"):
-				var raw_enemy: Variant = data_node.call("get_json", "res://data/enemies/%s.json" % enemy_id)
-				if raw_enemy is Dictionary:
-					enemy_data = raw_enemy
-			if enemy_data.is_empty() and FileAccess.file_exists("res://data/enemies/%s.json" % enemy_id):
-				var f: FileAccess = FileAccess.open("res://data/enemies/%s.json" % enemy_id, FileAccess.READ)
-				if f != null:
-					var j: JSON = JSON.new()
-					if j.parse(f.get_as_text()) == OK and j.data is Dictionary:
-						enemy_data = j.data as Dictionary
+				var raw_ai: Variant = data_node.call("get_json", "res://data/ai/%s.json" % ai_id)
+				if raw_ai is Dictionary:
+					ai_preset = raw_ai
+			if ai_preset.is_empty() and FileAccess.file_exists("res://data/ai/%s.json" % ai_id):
+				var fa: FileAccess = FileAccess.open("res://data/ai/%s.json" % ai_id, FileAccess.READ)
+				if fa != null:
+					var ja: JSON = JSON.new()
+					if ja.parse(fa.get_as_text()) == OK and ja.data is Dictionary:
+						ai_preset = ja.data as Dictionary
 
-			var body_model: String = str(enemy_data.get("body", ent.get("model", "janitor")))
-			var machine_scene: PackedScene = load("res://scenes/machine.tscn")
-			if machine_scene != null:
-				var m: Machine = machine_scene.instantiate() as Machine
-				m.position = pos
-				m.current_room = active_room
+			var ai_ctrl: AIController = AIController.new()
+			ai_ctrl.name = "Controller"
+			if not ai_preset.is_empty():
+				ai_ctrl.setup(ai_preset)
+
+			var old_ctrl: Node = m.get_node_or_null("Controller")
+			if old_ctrl != null:
+				m.remove_child(old_ctrl)
+				old_ctrl.free()
+			m.add_child(ai_ctrl)
+			m.controller = ai_ctrl
+
+			entities_container.add_child(m)
+			if not machines.has(m):
+				machines.append(m)
+
+	elif kind == "machine":
+		var machine_scene: PackedScene = load("res://scenes/machine.tscn")
+		if machine_scene != null:
+			var m: Machine = machine_scene.instantiate() as Machine
+			var model_id: String = str(ent.get("model", "janitor"))
+			m.position = pos
+			m.current_room = active_room
+
+			var ent_id: String = str(ent.get("id", ""))
+			if ent_id != "":
 				m.entity_id = ent_id
-				m.enemy_id = enemy_id
-				m.enemy_data = enemy_data
-				m.operational_state = "hostile"
-				m.faction = "hostile"
+			else:
+				m.entity_id = "%s_%d" % [model_id, machines.size()]
+			var state_str: String = str(ent.get("state", "dormant"))
+			m.operational_state = state_str
+			if ent.has("clearance"):
+				m.clearance_level = int(ent["clearance"])
+			if ent.has("is_immune_unit"):
+				m.is_immune_unit = bool(ent["is_immune_unit"])
+			if ent.has("is_boss_body"):
+				m.is_boss_body = bool(ent["is_boss_body"])
 
-				var b_dict: Dictionary = {}
-				if data_node != null and data_node.has_method("get_json"):
-					var raw_b: Variant = data_node.call("get_json", "res://data/bodies/%s.json" % body_model)
-					if raw_b is Dictionary:
-						b_dict = raw_b
-				if b_dict.is_empty() and FileAccess.file_exists("res://data/bodies/%s.json" % body_model):
-					var fb: FileAccess = FileAccess.open("res://data/bodies/%s.json" % body_model, FileAccess.READ)
-					if fb != null:
-						var jb: JSON = JSON.new()
-						if jb.parse(fb.get_as_text()) == OK and jb.data is Dictionary:
-							b_dict = jb.data as Dictionary
-				if not b_dict.is_empty():
-					m.apply_body_data(b_dict)
-
-				if enemy_data.has("integrity"):
-					var integ: int = int(enemy_data["integrity"])
-					m.state.max_integrity = integ
-					m.state.current_integrity = integ
-				if enemy_data.has("open_threshold"):
-					m.state.open_threshold = float(enemy_data["open_threshold"])
-
-				var ai_id: String = str(enemy_data.get("ai", "melee_swarmer"))
-				var ai_preset: Dictionary = {}
-				if data_node != null and data_node.has_method("get_json"):
-					var raw_ai: Variant = data_node.call("get_json", "res://data/ai/%s.json" % ai_id)
-					if raw_ai is Dictionary:
-						ai_preset = raw_ai
-				if ai_preset.is_empty() and FileAccess.file_exists("res://data/ai/%s.json" % ai_id):
-					var fa: FileAccess = FileAccess.open("res://data/ai/%s.json" % ai_id, FileAccess.READ)
-					if fa != null:
-						var ja: JSON = JSON.new()
-						if ja.parse(fa.get_as_text()) == OK and ja.data is Dictionary:
-							ai_preset = ja.data as Dictionary
-
-				var ai_ctrl: AIController = AIController.new()
-				ai_ctrl.name = "Controller"
-				if not ai_preset.is_empty():
-					ai_ctrl.setup(ai_preset)
-
+			if state_str == "dormant":
+				var null_ctrl: NullController = NullController.new()
+				null_ctrl.name = "Controller"
 				var old_ctrl: Node = m.get_node_or_null("Controller")
 				if old_ctrl != null:
 					m.remove_child(old_ctrl)
 					old_ctrl.free()
-				m.add_child(ai_ctrl)
-				m.controller = ai_ctrl
+				m.add_child(null_ctrl)
+				m.controller = null_ctrl
 
-				entities_container.add_child(m)
-				if not machines.has(m):
-					machines.append(m)
+			entities_container.add_child(m)
+			if not machines.has(m):
+				machines.append(m)
 
-		elif kind == "machine":
-			var machine_scene: PackedScene = load("res://scenes/machine.tscn")
-			if machine_scene != null:
-				var m: Machine = machine_scene.instantiate() as Machine
-				var model_id: String = str(ent.get("model", "janitor"))
-				m.position = pos
-				m.current_room = active_room
-
-				var ent_id: String = str(ent.get("id", ""))
-				if ent_id != "":
-					m.entity_id = ent_id
-				else:
-					m.entity_id = "%s_%d" % [model_id, machines.size()]
-				var state_str: String = str(ent.get("state", "dormant"))
-				m.operational_state = state_str
-				if ent.has("clearance"):
-					m.clearance_level = int(ent["clearance"])
-				if ent.has("is_immune_unit"):
-					m.is_immune_unit = bool(ent["is_immune_unit"])
-				if ent.has("is_boss_body"):
-					m.is_boss_body = bool(ent["is_boss_body"])
-
-				if state_str == "dormant":
-					var null_ctrl: NullController = NullController.new()
-					null_ctrl.name = "Controller"
-					var old_ctrl: Node = m.get_node_or_null("Controller")
-					if old_ctrl != null:
-						m.remove_child(old_ctrl)
-						old_ctrl.free()
-					m.add_child(null_ctrl)
-					m.controller = null_ctrl
-
-				entities_container.add_child(m)
-				if not machines.has(m):
-					machines.append(m)
-
-				var data_node: Node = get_node_or_null("/root/Data")
-				var b_dict: Dictionary = {}
-				if data_node != null and data_node.has_method("get_json"):
-					var raw: Variant = data_node.call("get_json", "res://data/bodies/%s.json" % model_id)
-					if raw is Dictionary:
-						b_dict = raw
-				elif FileAccess.file_exists("res://data/bodies/%s.json" % model_id):
-					var file: FileAccess = FileAccess.open("res://data/bodies/%s.json" % model_id, FileAccess.READ)
-					if file != null:
-						var json: JSON = JSON.new()
-						if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
-							b_dict = json.data as Dictionary
-				if not b_dict.is_empty():
-					m.apply_body_data(b_dict)
-				else:
-					m.body_id = model_id
+			var data_node: Node = get_node_or_null("/root/Data")
+			var b_dict: Dictionary = {}
+			if data_node != null and data_node.has_method("get_json"):
+				var raw: Variant = data_node.call("get_json", "res://data/bodies/%s.json" % model_id)
+				if raw is Dictionary:
+					b_dict = raw
+			elif FileAccess.file_exists("res://data/bodies/%s.json" % model_id):
+				var file: FileAccess = FileAccess.open("res://data/bodies/%s.json" % model_id, FileAccess.READ)
+				if file != null:
+					var json: JSON = JSON.new()
+					if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+						b_dict = json.data as Dictionary
+			if not b_dict.is_empty():
+				m.apply_body_data(b_dict)
+			else:
+				m.body_id = model_id
 
 func start_transition(next_room_id: String, dir: Vector2) -> void:
 	if is_transitioning:

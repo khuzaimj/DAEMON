@@ -277,13 +277,16 @@ func _step_bitrot_spread(world: Node) -> void:
 	var rng_streams: Variant = world.get("rng_streams")
 	if rng_streams != null and rng_streams is RngStreams:
 		rng = (rng_streams as RngStreams).get_stream("combat")
+	else:
+		rng = RandomNumberGenerator.new()
+		rng.seed = 101
 
 	var spread_count: int = mini(2, bitrot_cells.size())
 	var dirs: Array[Vector2i] = [Vector2i.UP, Vector2i.DOWN, Vector2i.LEFT, Vector2i.RIGHT]
 	for i: int in range(spread_count):
-		var source_idx: int = rng.randi_range(0, bitrot_cells.size() - 1) if rng != null else randi() % bitrot_cells.size()
+		var source_idx: int = rng.randi_range(0, bitrot_cells.size() - 1)
 		var src_cell: Vector2i = bitrot_cells[source_idx]
-		var dir_idx: int = rng.randi_range(0, dirs.size() - 1) if rng != null else randi() % dirs.size()
+		var dir_idx: int = rng.randi_range(0, dirs.size() - 1)
 		var target_cell: Vector2i = src_cell + dirs[dir_idx]
 		if Grid.is_in_room_bounds(target_cell) and target_cell.y < grid.size() and target_cell.x < grid[target_cell.y].length():
 			var cur_glyph: String = grid[target_cell.y][target_cell.x]

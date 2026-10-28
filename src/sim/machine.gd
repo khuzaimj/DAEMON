@@ -227,7 +227,15 @@ func take_damage(amount: int, damage_type: String = "kinetic", ignore_invuln: bo
 			var electric_heat: float = CombatMath.calculate_electric_heat(effective_damage)
 			add_heat(electric_heat)
 
-		var world_node: Node = get_tree().current_scene if is_inside_tree() else null
+		var world_node: Node = get_parent()
+		while world_node != null and not (world_node is World):
+			world_node = world_node.get_parent()
+		if world_node == null and is_inside_tree():
+			var cur: Node = get_tree().current_scene
+			if cur is World:
+				world_node = cur
+			elif cur != null and cur.get("world") is World:
+				world_node = cur.get("world")
 		if world_node != null:
 			if world_node.has_method("trigger_hit_stop"):
 				world_node.call("trigger_hit_stop", 3)
@@ -356,11 +364,15 @@ func _handle_slide_collision(col: KinematicCollision2D, delta: float) -> void:
 	if collider_obj is Machine:
 		var target_machine: Machine = collider_obj as Machine
 		if is_dashing and dash_damage > 0:
-			if not dash_hit_machines.has(target_machine):
-				dash_hit_machines.append(target_machine)
-				target_machine.take_damage(dash_damage, "kinetic")
-				var kb_vec: Vector2 = AbilityMath.calculate_knockback(global_position, target_machine.global_position, dash_knockback * float(Grid.TILE_SIZE))
-				target_machine.apply_knockback(kb_vec)
+			var m_faction: String = get_faction()
+			var t_faction: String = target_machine.get_faction()
+			if not ((m_faction == "player" or m_faction == "hostile") and m_faction == t_faction):
+				if not dash_hit_machines.has(target_machine):
+					dash_hit_machines.append(target_machine)
+					var impact_dir: Vector2 = (target_machine.global_position - global_position).normalized()
+					target_machine.take_damage(dash_damage, "kinetic", false, impact_dir)
+					var kb_vec: Vector2 = AbilityMath.calculate_knockback(global_position, target_machine.global_position, dash_knockback * float(Grid.TILE_SIZE))
+					target_machine.apply_knockback(kb_vec)
 
 		if self.weight > target_machine.weight:
 			var push_amt: Vector2 = push_dir * (self.velocity.length() * delta)

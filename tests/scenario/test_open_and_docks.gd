@@ -122,3 +122,42 @@ func test_dock_checkpoint_save_and_fabrication() -> void:
 	assert_eq(fab_m.operational_state, "dormant")
 	if game != null:
 		assert_lt(int(game.get("scrap")), 50, "Scrap must be deducted on fabrication")
+
+func test_dock_activation_respawns_room_enemies() -> void:
+	var world_scene: PackedScene = load("res://scenes/world.tscn")
+	var world: World = world_scene.instantiate() as World
+	add_child_autoqfree(world)
+	world.load_room("debug_09")
+
+	var dock: Dock = autofree(Dock.new()) as Dock
+	dock.entity_id = "test_arena_dock"
+	dock.position = Vector2(40.0, 40.0)
+	world.entities_container.add_child(dock)
+
+	# Find enemy in debug_09
+	var target_enemy: Machine = null
+	for m: Machine in world.machines:
+		if m.entity_id == "enemy_janitor_heavy":
+			target_enemy = m
+			break
+	assert_not_null(target_enemy, "Enemy enemy_janitor_heavy should exist in debug_09")
+
+	# Destroy the enemy (step through hit-stop ticks into combat cleanup)
+	target_enemy.take_damage(999, "kinetic", true)
+	for i: int in range(5):
+		world._physics_process(1.0 / 60.0)
+	assert_false(world.machines.has(target_enemy), "Defeated enemy should be removed from world machines")
+	assert_true(world.defeated_enemies_in_room.has("enemy_janitor_heavy"), "Defeated enemy recorded")
+
+	# Activate dock
+	dock.activate_dock(world.player_machine)
+
+	# Enemy should be respawned in world.machines
+	var respawned: Machine = null
+	for m: Machine in world.machines:
+		if m.entity_id == "enemy_janitor_heavy":
+			respawned = m
+			break
+	assert_not_null(respawned, "Enemy should be respawned after dock activation")
+	assert_eq(respawned.operational_state, "hostile")
+	assert_false(world.defeated_enemies_in_room.has("enemy_janitor_heavy"), "Defeated list should be cleared")

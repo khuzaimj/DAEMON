@@ -21,7 +21,7 @@ func _ready() -> void:
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
 
-func _physics_process(delta: float) -> void:
+func step(delta: float) -> void:
 	if velocity != Vector2.ZERO:
 		position += velocity * delta
 		velocity = velocity.move_toward(Vector2.ZERO, friction * delta)

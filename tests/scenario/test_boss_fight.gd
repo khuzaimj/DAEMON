@@ -68,3 +68,4 @@ func test_bootloader_boss_lifecycle_and_subsystem_hijacking() -> void:
 	assert_true(b_ctrl.is_defeated, "Boss should be marked defeated")
 	assert_gt(defeated_events.size(), 0, "boss_defeated signal should be emitted")
 	assert_eq(boss_machine.operational_state, "dormant", "Boss should power down to dormant upon defeat")
+	assert_false(world.hijack_fsm.registered_models.has("actuator"), "Subsystem actuator should not be registered in Garage")

@@ -28,11 +28,16 @@ static func start_flame_cone(machine: Machine, data: Dictionary, dir: Vector2) -
 	# 2. Damage and apply burn to machines in cone
 	var world_node: World = _find_world(machine)
 	if world_node != null:
+		var m_faction: String = machine.get_faction()
 		for target: Machine in world_node.machines:
 			if target == machine or not is_instance_valid(target):
 				continue
+			var t_faction: String = target.get_faction()
+			if (m_faction == "player" or m_faction == "hostile") and m_faction == t_faction:
+				continue
 			if AbilityMath.is_point_in_cone(origin, norm_dir, target.global_position, angle_deg, range_px):
-				target.take_damage(damage, "thermal")
+				var impact_dir: Vector2 = (target.global_position - origin).normalized()
+				target.take_damage(damage, "thermal", false, impact_dir)
 				target.apply_status("burn", 60) # 1.0s burn
 
 static func start_beam_channel(machine: Machine, data: Dictionary, dir: Vector2) -> void:
@@ -56,11 +61,16 @@ static func start_beam_channel(machine: Machine, data: Dictionary, dir: Vector2)
 	# Damage machines along beam line
 	var world_node: World = _find_world(machine)
 	if world_node != null:
+		var m_faction: String = machine.get_faction()
 		for target: Machine in world_node.machines:
 			if target == machine or not is_instance_valid(target):
 				continue
+			var t_faction: String = target.get_faction()
+			if (m_faction == "player" or m_faction == "hostile") and m_faction == t_faction:
+				continue
 			if AbilityMath.is_point_in_cone(origin, norm_dir, target.global_position, 15.0, range_px):
-				target.take_damage(damage, "thermal")
+				var impact_dir: Vector2 = (target.global_position - origin).normalized()
+				target.take_damage(damage, "thermal", false, impact_dir)
 
 static func start_repair_beam(machine: Machine, data: Dictionary, dir: Vector2) -> void:
 	if machine == null or not is_instance_valid(machine):
@@ -74,8 +84,11 @@ static func start_repair_beam(machine: Machine, data: Dictionary, dir: Vector2) 
 	var world_node: World = _find_world(machine)
 	if world_node != null:
 		var healed_targets: Array[Machine] = []
+		var m_faction: String = machine.get_faction()
 		for target: Machine in world_node.machines:
 			if target == machine or not is_instance_valid(target) or healed_targets.has(target):
+				continue
+			if target.get_faction() != m_faction:
 				continue
 			if AbilityMath.is_point_in_cone(origin, norm_dir, target.global_position, 30.0, range_px):
 				healed_targets.append(target)

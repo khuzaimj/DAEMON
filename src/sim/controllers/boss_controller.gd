@@ -132,7 +132,9 @@ func _spawn_minion(world: World) -> void:
 	if world == null or world.entities_container == null:
 		return
 	var mite: ImmuneUnit = ImmuneUnit.new("glitch_mite")
-	mite.position = boss_machine.global_position + Vector2(randf_range(-40, 40), 32)
+	var stream: RandomNumberGenerator = world.rng_streams.get_stream("boss") if world != null and world.rng_streams != null else null
+	var offset_x: float = stream.randf_range(-40.0, 40.0) if stream != null else 0.0
+	mite.position = boss_machine.global_position + Vector2(offset_x, 32.0)
 	mite.current_room = world.active_room
 	world.entities_container.add_child(mite)
 	world.register_machine(mite)

@@ -70,7 +70,15 @@ func activate_dock(player_m: Machine) -> void:
 		player_m.state.current_heat = 0.0
 		player_m.state.heat_changed.emit(0.0, player_m.state.max_heat)
 
-	var world_node: Node = get_tree().current_scene if get_tree() != null else null
+	var world_node: Node = get_parent()
+	while world_node != null and not (world_node is World):
+		world_node = world_node.get_parent()
+	if world_node == null and get_tree() != null:
+		var cur: Node = get_tree().current_scene
+		if cur is World:
+			world_node = cur
+		elif cur != null and cur.get("world") is World:
+			world_node = cur.get("world")
 	if world_node != null and world_node.has_method("respawn_room_enemies"):
 		world_node.call("respawn_room_enemies")
 

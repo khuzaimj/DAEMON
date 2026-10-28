@@ -31,11 +31,16 @@ static func start_melee_arc(machine: Machine, data: Dictionary, dir: Vector2) ->
 	# 2. Hit targets in arc (other machines)
 	var world_node: World = _find_world(machine)
 	if world_node != null:
+		var m_faction: String = machine.get_faction()
 		for target: Machine in world_node.machines:
 			if target == machine or not is_instance_valid(target):
 				continue
+			var t_faction: String = target.get_faction()
+			if (m_faction == "player" or m_faction == "hostile") and m_faction == t_faction:
+				continue
 			if AbilityMath.is_point_in_arc(origin, norm_dir, target.global_position, arc_deg, radius_px):
-				target.take_damage(damage, "kinetic")
+				var impact_dir: Vector2 = (target.global_position - origin).normalized()
+				target.take_damage(damage, "kinetic", false, impact_dir)
 				var kb_vec: Vector2 = AbilityMath.calculate_knockback(origin, target.global_position, knockback * float(Grid.TILE_SIZE))
 				target.apply_knockback(kb_vec)
 
@@ -53,11 +58,16 @@ static func start_claw(machine: Machine, data: Dictionary, dir: Vector2) -> void
 	
 	var world_node: World = _find_world(machine)
 	if world_node != null:
+		var m_faction: String = machine.get_faction()
 		for target: Machine in world_node.machines:
 			if target == machine or not is_instance_valid(target):
 				continue
+			var t_faction: String = target.get_faction()
+			if (m_faction == "player" or m_faction == "hostile") and m_faction == t_faction:
+				continue
 			if AbilityMath.is_point_in_arc(origin, norm_dir, target.global_position, arc_deg, radius_px):
-				target.take_damage(damage, "kinetic")
+				var impact_dir: Vector2 = (target.global_position - origin).normalized()
+				target.take_damage(damage, "kinetic", false, impact_dir)
 				var kb_vec: Vector2 = AbilityMath.calculate_knockback(origin, target.global_position, knockback * float(Grid.TILE_SIZE))
 				target.apply_knockback(kb_vec)
 

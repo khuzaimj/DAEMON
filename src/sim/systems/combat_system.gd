@@ -54,12 +54,18 @@ func step(world: Node2D, _tick: int, delta: float) -> void:
 				var player_m: Machine = world.get("player_machine") as Machine
 				if player_m == m:
 					var hijack_fsm: Object = world.get("hijack_fsm")
-					if hijack_fsm != null and hijack_fsm.has_method("eject_to_cursor"):
-						hijack_fsm.call("eject_to_cursor")
+					if hijack_fsm != null and hijack_fsm.has_method("force_eject"):
+						hijack_fsm.call("force_eject", m.position, "crashed")
 
 	# 3. Process destroyed hostiles: spawn scrap, emit event, queue_free
 	for enemy: Machine in destroyed_hostiles:
 		_process_enemy_death(world, enemy)
+
+	# 4. Step active pickups
+	if world.is_inside_tree():
+		for pickup_node: Node in world.get_tree().get_nodes_in_group("pickups"):
+			if is_instance_valid(pickup_node) and pickup_node.has_method("step"):
+				pickup_node.call("step", delta)
 
 func _process_enemy_death(world: Node2D, enemy: Machine) -> void:
 	var enemy_pos: Vector2 = enemy.global_position
@@ -71,12 +77,8 @@ func _process_enemy_death(world: Node2D, enemy: Machine) -> void:
 	var max_scrap: int = int(drop_range[1]) if drop_range.size() > 1 else min_scrap
 
 	var rng_streams: RngStreams = world.get("rng_streams") as RngStreams
-	var scrap_count: int = min_scrap
-	if rng_streams != null:
-		var stream: RandomNumberGenerator = rng_streams.get_stream("combat")
-		scrap_count = stream.randi_range(min_scrap, max_scrap)
-	else:
-		scrap_count = randi_range(min_scrap, max_scrap)
+	var stream: RandomNumberGenerator = rng_streams.get_stream("combat") if rng_streams != null else null
+	var scrap_count: int = stream.randi_range(min_scrap, max_scrap) if stream != null else min_scrap
 
 	var entities_node: Node = world.get_node_or_null("Entities")
 	if entities_node != null and scrap_count > 0:
@@ -84,7 +86,7 @@ func _process_enemy_death(world: Node2D, enemy: Machine) -> void:
 			var pickup: ScrapPickup = ScrapPickup.new()
 			pickup.amount = 1
 			var angle: float = (TAU / float(scrap_count)) * float(i)
-			var spread_speed: float = randf_range(20.0, 50.0)
+			var spread_speed: float = stream.randf_range(20.0, 50.0) if stream != null else 35.0
 			pickup.velocity = Vector2.RIGHT.rotated(angle) * spread_speed
 			pickup.position = enemy_pos
 			entities_node.add_child(pickup)
@@ -99,8 +101,12 @@ func _process_enemy_death(world: Node2D, enemy: Machine) -> void:
 
 	# Record in world.defeated_enemies_in_room if supported
 	var def_arr: Variant = world.get("defeated_enemies_in_room")
-	if def_arr is Array and not (def_arr as Array).has(enemy_id):
-		(def_arr as Array).append(enemy_id)
+	if def_arr is Array:
+		var arr: Array = def_arr as Array
+		if enemy.entity_id != "" and not arr.has(enemy.entity_id):
+			arr.append(enemy.entity_id)
+		if enemy.enemy_id != "" and not arr.has(enemy.enemy_id):
+			arr.append(enemy.enemy_id)
 
 	# Unregister and remove
 	if world.has_method("unregister_machine"):
