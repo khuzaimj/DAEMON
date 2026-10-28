@@ -1,0 +1,16 @@
+{
+  "id": "water_ambusher",
+  "initial": "patrol",
+  "params": {
+    "patrol_speed": 0.8,
+    "chase_speed": 1.1,
+    "attack_range": 4.5,
+    "search_time": 4.0
+  },
+  "states": {
+    "patrol": { "do": "patrol_waypoints", "on": { "see_target": "chase" } },
+    "chase":  { "do": "move_to_target",   "on": { "in_range": "attack", "lost_target": "search" } },
+    "attack": { "do": "use_primary",      "on": { "out_of_range": "chase" } },
+    "search": { "do": "wander_last_seen", "on": { "see_target": "chase", "timeout": "patrol" } }
+  }
+}

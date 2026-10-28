@@ -1,0 +1,11 @@
+{
+  "id": "rogue_loader",
+  "body": "loader",
+  "faction": "hostile",
+  "integrity": 12,
+  "ai": "charger",
+  "senses": { "vision": 7.0, "hearing": 4.0 },
+  "open_threshold": 0.35,
+  "drops": { "scrap": [3, 5] },
+  "palette_variant": "hostile"
+}

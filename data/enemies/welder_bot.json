@@ -1,0 +1,11 @@
+{
+  "id": "welder_bot",
+  "body": "welder",
+  "faction": "hostile",
+  "integrity": 7,
+  "ai": "thermal_skirmisher",
+  "senses": { "vision": 6.0, "hearing": 4.0 },
+  "open_threshold": 0.35,
+  "drops": { "scrap": [2, 4] },
+  "palette_variant": "hostile"
+}

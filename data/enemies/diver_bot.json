@@ -1,0 +1,11 @@
+{
+  "id": "diver_bot",
+  "body": "diver",
+  "faction": "hostile",
+  "integrity": 8,
+  "ai": "water_ambusher",
+  "senses": { "vision": 6.5, "hearing": 4.5 },
+  "open_threshold": 0.35,
+  "drops": { "scrap": [3, 5] },
+  "palette_variant": "hostile"
+}

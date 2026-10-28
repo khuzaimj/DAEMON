@@ -118,6 +118,11 @@ func _on_entity_child_entered(node: Node) -> void:
 			projectiles.append(p)
 
 func _on_entity_child_exiting(node: Node) -> void:
+	if not is_instance_valid(node):
+		machines.erase(node)
+		crates.erase(node)
+		projectiles.erase(node)
+		return
 	if node is Machine:
 		machines.erase(node)
 	elif node is Crate:
@@ -259,7 +264,7 @@ func _step_combat(delta: float) -> void:
 func _step_logic() -> void:
 	if is_inside_tree():
 		for plate_node: Node in get_tree().get_nodes_in_group("plates"):
-			if plate_node is Plate and is_instance_valid(plate_node):
+			if is_instance_valid(plate_node) and plate_node is Plate:
 				(plate_node as Plate).check_weight()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -441,11 +446,11 @@ func _step_hijack(delta: float) -> void:
 	if hijack_fsm != null and hijack_fsm.state == HijackFSM.State.NODE_PILOT:
 		var operate_pressed: bool = false
 		var eject_pressed: bool = false
-		if node_pilot_controller is ScriptController:
+		if is_instance_valid(node_pilot_controller) and node_pilot_controller is ScriptController:
 			var s_ctrl: ScriptController = node_pilot_controller as ScriptController
 			operate_pressed = s_ctrl.default_intent.primary or s_ctrl.default_intent.interact
 			eject_pressed = s_ctrl.default_intent.hop or s_ctrl.default_intent.eject
-		elif player_machine != null and is_instance_valid(player_machine) and player_machine.controller is ScriptController:
+		elif player_machine != null and is_instance_valid(player_machine) and is_instance_valid(player_machine.controller) and player_machine.controller is ScriptController:
 			var s_ctrl2: ScriptController = player_machine.controller as ScriptController
 			operate_pressed = s_ctrl2.default_intent.primary or s_ctrl2.default_intent.interact
 			eject_pressed = s_ctrl2.default_intent.hop or s_ctrl2.default_intent.eject
@@ -554,9 +559,9 @@ func _on_host_parked(host_id: String, routine: String, pin_pos: Vector2) -> void
 		var r_ctrl: RoutineController = RoutineController.new(p_state)
 		r_ctrl.name = "Controller"
 		var old_ctrl: Node = host.get_node_or_null("Controller")
-		if host.controller is ScriptController:
+		if is_instance_valid(host.controller) and host.controller is ScriptController:
 			node_pilot_controller = host.controller
-		elif old_ctrl is ScriptController:
+		elif is_instance_valid(old_ctrl) and old_ctrl is ScriptController:
 			node_pilot_controller = old_ctrl
 		if old_ctrl != null:
 			host.remove_child(old_ctrl)
@@ -595,7 +600,7 @@ func _on_transit_blocked_by_firewall(block_pos: Vector2) -> void:
 
 func _on_node_seized(node_id: String) -> void:
 	if player_machine != null and is_instance_valid(player_machine):
-		if player_machine.controller is ScriptController:
+		if is_instance_valid(player_machine.controller) and player_machine.controller is ScriptController:
 			node_pilot_controller = player_machine.controller
 		if player_machine.body_id == "cursor":
 			var old_cursor: Machine = player_machine
@@ -1073,6 +1078,88 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 			inode.position = pos
 			inode.clearance_level = int(ent.get("clearance", 0))
 			entities_container.add_child(inode)
+		elif kind == "enemy" or (kind == "machine" and (ent.has("enemy_id") or str(ent.get("state", "")) == "hostile")):
+			var enemy_id: String = str(ent.get("enemy_id", ent.get("id", "rogue_janitor")))
+			var ent_id: String = str(ent.get("id", "%s_%d" % [enemy_id, machines.size()]))
+
+			if defeated_enemies_in_room.has(ent_id) or defeated_enemies_in_room.has(enemy_id):
+				continue
+
+			var enemy_data: Dictionary = {}
+			var data_node: Node = get_node_or_null("/root/Data")
+			if data_node != null and data_node.has_method("get_json"):
+				var raw_enemy: Variant = data_node.call("get_json", "res://data/enemies/%s.json" % enemy_id)
+				if raw_enemy is Dictionary:
+					enemy_data = raw_enemy
+			if enemy_data.is_empty() and FileAccess.file_exists("res://data/enemies/%s.json" % enemy_id):
+				var f: FileAccess = FileAccess.open("res://data/enemies/%s.json" % enemy_id, FileAccess.READ)
+				if f != null:
+					var j: JSON = JSON.new()
+					if j.parse(f.get_as_text()) == OK and j.data is Dictionary:
+						enemy_data = j.data as Dictionary
+
+			var body_model: String = str(enemy_data.get("body", ent.get("model", "janitor")))
+			var machine_scene: PackedScene = load("res://scenes/machine.tscn")
+			if machine_scene != null:
+				var m: Machine = machine_scene.instantiate() as Machine
+				m.position = pos
+				m.current_room = active_room
+				m.entity_id = ent_id
+				m.enemy_id = enemy_id
+				m.enemy_data = enemy_data
+				m.operational_state = "hostile"
+				m.faction = "hostile"
+
+				var b_dict: Dictionary = {}
+				if data_node != null and data_node.has_method("get_json"):
+					var raw_b: Variant = data_node.call("get_json", "res://data/bodies/%s.json" % body_model)
+					if raw_b is Dictionary:
+						b_dict = raw_b
+				if b_dict.is_empty() and FileAccess.file_exists("res://data/bodies/%s.json" % body_model):
+					var fb: FileAccess = FileAccess.open("res://data/bodies/%s.json" % body_model, FileAccess.READ)
+					if fb != null:
+						var jb: JSON = JSON.new()
+						if jb.parse(fb.get_as_text()) == OK and jb.data is Dictionary:
+							b_dict = jb.data as Dictionary
+				if not b_dict.is_empty():
+					m.apply_body_data(b_dict)
+
+				if enemy_data.has("integrity"):
+					var integ: int = int(enemy_data["integrity"])
+					m.state.max_integrity = integ
+					m.state.current_integrity = integ
+				if enemy_data.has("open_threshold"):
+					m.state.open_threshold = float(enemy_data["open_threshold"])
+
+				var ai_id: String = str(enemy_data.get("ai", "melee_swarmer"))
+				var ai_preset: Dictionary = {}
+				if data_node != null and data_node.has_method("get_json"):
+					var raw_ai: Variant = data_node.call("get_json", "res://data/ai/%s.json" % ai_id)
+					if raw_ai is Dictionary:
+						ai_preset = raw_ai
+				if ai_preset.is_empty() and FileAccess.file_exists("res://data/ai/%s.json" % ai_id):
+					var fa: FileAccess = FileAccess.open("res://data/ai/%s.json" % ai_id, FileAccess.READ)
+					if fa != null:
+						var ja: JSON = JSON.new()
+						if ja.parse(fa.get_as_text()) == OK and ja.data is Dictionary:
+							ai_preset = ja.data as Dictionary
+
+				var ai_ctrl: AIController = AIController.new()
+				ai_ctrl.name = "Controller"
+				if not ai_preset.is_empty():
+					ai_ctrl.setup(ai_preset)
+
+				var old_ctrl: Node = m.get_node_or_null("Controller")
+				if old_ctrl != null:
+					m.remove_child(old_ctrl)
+					old_ctrl.free()
+				m.add_child(ai_ctrl)
+				m.controller = ai_ctrl
+
+				entities_container.add_child(m)
+				if not machines.has(m):
+					machines.append(m)
+
 		elif kind == "machine":
 			var machine_scene: PackedScene = load("res://scenes/machine.tscn")
 			if machine_scene != null:
@@ -1101,7 +1188,7 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 					var old_ctrl: Node = m.get_node_or_null("Controller")
 					if old_ctrl != null:
 						m.remove_child(old_ctrl)
-						old_ctrl.queue_free()
+						old_ctrl.free()
 					m.add_child(null_ctrl)
 					m.controller = null_ctrl
 

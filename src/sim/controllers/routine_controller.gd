@@ -61,9 +61,9 @@ func decide(machine: Machine, _tick: int) -> Intent:
 
 func _find_nearest_hostile_in_range(self_m: Machine, range_px: float) -> Machine:
 	var world: Node = self_m.get_parent()
-	while world != null and not (world is World):
+	while world != null and is_instance_valid(world) and not (world is World):
 		world = world.get_parent()
-	if world == null:
+	if world == null or not is_instance_valid(world):
 		return null
 	var world_node: World = world as World
 
@@ -87,9 +87,9 @@ func _check_medic_repeat_heal(self_m: Machine) -> void:
 	if heal_tick_counter >= 60: # 1.0s interval
 		heal_tick_counter = 0
 		var world: Node = self_m.get_parent()
-		while world != null and not (world is World):
+		while world != null and is_instance_valid(world) and not (world is World):
 			world = world.get_parent()
-		if world == null:
+		if world == null or not is_instance_valid(world):
 			return
 		var world_node: World = world as World
 		for m: Machine in world_node.machines:

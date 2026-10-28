@@ -66,7 +66,9 @@ func _check_direct_hits() -> void:
 	if parent_node == null:
 		return
 	for child: Node in parent_node.get_children():
-		if child is Machine and child != source_machine and is_instance_valid(child):
+		if not is_instance_valid(child) or child == source_machine:
+			continue
+		if child is Machine:
 			var m: Machine = child as Machine
 			var hit_dist: float = 10.0
 			if m.collider != null and m.collider.shape != null:
@@ -76,7 +78,7 @@ func _check_direct_hits() -> void:
 				return
 
 func _apply_hit(target_machine: Machine) -> void:
-	if not is_active:
+	if not is_active or not is_instance_valid(target_machine):
 		return
 	if source_faction != "":
 		var target_faction: String = target_machine.get_faction()
@@ -92,19 +94,19 @@ func _apply_hit(target_machine: Machine) -> void:
 	queue_free()
 
 func _on_area_entered(area: Area2D) -> void:
-	if not is_active:
+	if not is_active or not is_instance_valid(area):
 		return
 	var target_machine: Machine = null
-	if area.owner is Machine:
+	if is_instance_valid(area.owner) and area.owner is Machine:
 		target_machine = area.owner as Machine
-	elif area.get_parent() is Machine:
+	elif is_instance_valid(area.get_parent()) and area.get_parent() is Machine:
 		target_machine = area.get_parent() as Machine
 		
 	if target_machine != null and target_machine != source_machine:
 		_apply_hit(target_machine)
 
 func _on_body_entered(body: Node2D) -> void:
-	if not is_active or body == source_machine:
+	if not is_active or not is_instance_valid(body) or body == source_machine:
 		return
 	is_active = false
 	queue_free()

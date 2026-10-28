@@ -1,0 +1,11 @@
+{
+  "id": "courier_bot",
+  "body": "courier",
+  "faction": "hostile",
+  "integrity": 5,
+  "ai": "speed_dasher",
+  "senses": { "vision": 7.0, "hearing": 4.5 },
+  "open_threshold": 0.35,
+  "drops": { "scrap": [2, 5] },
+  "palette_variant": "hostile"
+}

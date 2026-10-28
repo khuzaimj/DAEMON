@@ -158,7 +158,7 @@ func _do_move_to_target(machine: Machine, intent: Intent) -> void:
 
 	# Recompute path if needed
 	if current_path.is_empty() or path_index >= current_path.size() or path_recalc_cooldown <= 0:
-		var world_node: Node = machine.get_tree().current_scene if machine.is_inside_tree() else null
+		var world_node: Node = _get_world(machine)
 		if world_node != null and world_node.get("pathfinding_system") != null:
 			var pf: PathfindingSystem = world_node.get("pathfinding_system") as PathfindingSystem
 			current_path = pf.find_path(machine.global_position, dest, machine.size_class, machine.mediums)
@@ -245,16 +245,29 @@ func _has_damaged_ally(machine: Machine) -> bool:
 	return _find_damaged_ally(machine) != null
 
 func _find_damaged_ally(machine: Machine) -> Machine:
-	var world_node: Node = machine.get_tree().current_scene if machine.is_inside_tree() else null
+	var world_node: Node = _get_world(machine)
 	if world_node == null:
 		return null
 	var machines: Array = world_node.get("machines") if world_node.get("machines") is Array else []
 	var my_faction: String = machine.get_faction()
 
 	for m_node: Variant in machines:
-		if m_node is Machine and is_instance_valid(m_node) and m_node != machine:
-			var other: Machine = m_node as Machine
-			if other.get_faction() == my_faction and other.state != null:
-				if other.state.current_integrity < other.state.max_integrity and not other.state.is_crashed:
-					return other
+		if not is_instance_valid(m_node) or m_node == machine:
+			continue
+		if not (m_node is Machine):
+			continue
+		var other: Machine = m_node as Machine
+		if other.get_faction() == my_faction and other.state != null:
+			if other.state.current_integrity < other.state.max_integrity and not other.state.is_crashed:
+				return other
+	return null
+
+func _get_world(node: Node) -> Node:
+	var cur: Node = node
+	while cur != null:
+		if cur is World or cur.name == "World" or cur.has_method("register_machine"):
+			return cur
+		cur = cur.get_parent()
+	if node != null and node.is_inside_tree() and node.get_tree() != null:
+		return node.get_tree().current_scene
 	return null

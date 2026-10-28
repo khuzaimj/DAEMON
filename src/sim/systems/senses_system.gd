@@ -13,16 +13,18 @@ func step(world: Node2D, tick: int, _delta: float) -> void:
 	var player_m: Machine = world.get("player_machine") as Machine
 
 	for m_node: Variant in machines:
-		if not (m_node is Machine) or not is_instance_valid(m_node):
+		if not is_instance_valid(m_node):
+			continue
+		if not (m_node is Machine):
 			continue
 		var m: Machine = m_node as Machine
-		if not (m.controller is AIController):
+		if not is_instance_valid(m.controller) or not (m.controller is AIController):
 			continue
 		var ai_ctrl: AIController = m.controller as AIController
 
 		# Target selection for hostile AI: default to player_machine
 		var target: Machine = player_m
-		if target == null or not is_instance_valid(target) or target.state.is_crashed:
+		if target == null or not is_instance_valid(target) or target.state == null or target.state.is_crashed:
 			# Look for any friendly/player-faction machine in room
 			target = _find_nearest_opposing_machine(m, machines)
 
@@ -67,21 +69,26 @@ func _find_nearest_opposing_machine(source: Machine, machines: Array) -> Machine
 	var min_dist: float = 99999.0
 
 	for m_node: Variant in machines:
-		if m_node is Machine and is_instance_valid(m_node) and m_node != source:
-			var other: Machine = m_node as Machine
-			if other.state != null and not other.state.is_crashed:
-				var other_fac: String = other.get_faction()
-				if (my_faction == "hostile" and other_fac == "player") or (my_faction == "player" and other_fac == "hostile"):
-					var d: float = source.global_position.distance_to(other.global_position)
-					if d < min_dist:
-						min_dist = d
-						nearest = other
+		if not is_instance_valid(m_node) or m_node == source:
+			continue
+		if not (m_node is Machine):
+			continue
+		var other: Machine = m_node as Machine
+		if other.state != null and not other.state.is_crashed:
+			var other_fac: String = other.get_faction()
+			if (my_faction == "hostile" and other_fac == "player") or (my_faction == "player" and other_fac == "hostile"):
+				var d: float = source.global_position.distance_to(other.global_position)
+				if d < min_dist:
+					min_dist = d
+					nearest = other
 	return nearest
 
 static func has_line_of_sight(world: Node2D, from_pos: Vector2, to_pos: Vector2) -> bool:
 	if not world.is_inside_tree():
 		return true
 	var space_state: PhysicsDirectSpaceState2D = world.get_world_2d().direct_space_state
+	if space_state == null:
+		return true
 	var query: PhysicsRayQueryParameters2D = PhysicsRayQueryParameters2D.create(from_pos, to_pos)
 	# Layer 1: solid (1 << 0 = 1)
 	query.collision_mask = 1
@@ -95,8 +102,11 @@ func _broadcast_group_alert(world: Node2D, alerter: Machine, target: Machine, al
 	var my_faction: String = alerter.get_faction()
 
 	for m_node: Variant in machines:
-		if m_node is Machine and is_instance_valid(m_node) and m_node != alerter:
-			var ally: Machine = m_node as Machine
-			if ally.get_faction() == my_faction and ally.controller is AIController:
-				if alerter.global_position.distance_to(ally.global_position) <= alert_radius_px:
-					(ally.controller as AIController).receive_alert(target.global_position, target, tick)
+		if not is_instance_valid(m_node) or m_node == alerter:
+			continue
+		if not (m_node is Machine):
+			continue
+		var ally: Machine = m_node as Machine
+		if ally.get_faction() == my_faction and is_instance_valid(ally.controller) and ally.controller is AIController:
+			if alerter.global_position.distance_to(ally.global_position) <= alert_radius_px:
+				(ally.controller as AIController).receive_alert(target.global_position, target, tick)

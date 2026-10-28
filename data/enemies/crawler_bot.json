@@ -1,0 +1,11 @@
+{
+  "id": "crawler_bot",
+  "body": "crawler",
+  "faction": "hostile",
+  "integrity": 6,
+  "ai": "hazard_runner",
+  "senses": { "vision": 6.0, "hearing": 4.0 },
+  "open_threshold": 0.35,
+  "drops": { "scrap": [2, 4] },
+  "palette_variant": "hostile"
+}

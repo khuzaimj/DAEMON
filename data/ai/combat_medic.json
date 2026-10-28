@@ -1,0 +1,14 @@
+{
+  "id": "combat_medic",
+  "initial": "support",
+  "params": {
+    "patrol_speed": 0.6,
+    "chase_speed": 0.9,
+    "attack_range": 2.5,
+    "search_time": 4.0
+  },
+  "states": {
+    "support": { "do": "heal_ally",       "on": { "see_target": "flee" } },
+    "flee":    { "do": "flee",            "on": { "lost_target": "support" } }
+  }
+}

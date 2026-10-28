@@ -1,0 +1,12 @@
+{
+  "id": "stationary_turret",
+  "initial": "guard",
+  "params": {
+    "attack_range": 6.0,
+    "search_time": 3.0
+  },
+  "states": {
+    "guard":  { "do": "guard",       "on": { "see_target": "attack" } },
+    "attack": { "do": "use_primary", "on": { "lost_target": "guard" } }
+  }
+}

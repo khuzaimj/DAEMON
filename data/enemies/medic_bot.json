@@ -1,0 +1,11 @@
+{
+  "id": "medic_bot",
+  "body": "medic",
+  "faction": "hostile",
+  "integrity": 6,
+  "ai": "combat_medic",
+  "senses": { "vision": 6.0, "hearing": 4.0 },
+  "open_threshold": 0.35,
+  "drops": { "scrap": [3, 6] },
+  "palette_variant": "hostile"
+}

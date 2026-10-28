@@ -1,0 +1,11 @@
+{
+  "id": "drone_patrol",
+  "body": "drone",
+  "faction": "hostile",
+  "integrity": 5,
+  "ai": "flying_patrol",
+  "senses": { "vision": 7.5, "hearing": 4.0 },
+  "open_threshold": 0.35,
+  "drops": { "scrap": [2, 4] },
+  "palette_variant": "hostile"
+}

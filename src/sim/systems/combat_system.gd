@@ -13,13 +13,15 @@ func step(world: Node2D, _tick: int, delta: float) -> void:
 	var active_projectiles: Array = world.get("projectiles") if world.get("projectiles") is Array else []
 	var projs_to_remove: Array[Projectile] = []
 	for p_node: Variant in active_projectiles:
-		if p_node is Projectile and is_instance_valid(p_node):
+		if not is_instance_valid(p_node):
+			continue
+		if p_node is Projectile:
 			var proj: Projectile = p_node as Projectile
 			if proj.is_active:
 				proj.step(delta)
 			else:
 				projs_to_remove.append(proj)
-		elif p_node != null:
+		else:
 			projs_to_remove.append(p_node as Projectile)
 
 	for p_rem: Projectile in projs_to_remove:
@@ -30,7 +32,9 @@ func step(world: Node2D, _tick: int, delta: float) -> void:
 	var destroyed_hostiles: Array[Machine] = []
 
 	for m_node: Variant in machines:
-		if not (m_node is Machine) or not is_instance_valid(m_node):
+		if not is_instance_valid(m_node):
+			continue
+		if not (m_node is Machine):
 			continue
 		var m: Machine = m_node as Machine
 		if m.state == null:

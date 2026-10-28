@@ -1,0 +1,11 @@
+{
+  "id": "rogue_sentry",
+  "body": "sentry",
+  "faction": "hostile",
+  "integrity": 8,
+  "ai": "stationary_turret",
+  "senses": { "vision": 8.0, "hearing": 5.0 },
+  "open_threshold": 0.35,
+  "drops": { "scrap": [2, 4] },
+  "palette_variant": "hostile"
+}
