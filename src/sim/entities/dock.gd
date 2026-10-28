@@ -56,9 +56,12 @@ func activate_dock(player_m: Machine) -> void:
 			var current_room: String = str(game_node.get("current_room_id"))
 			game_node.set("last_dock_room_id", current_room)
 			game_node.set("last_dock_spawn_pos", global_position)
-			var visited: Array = game_node.get("visited_docks")
-			if not visited.has(entity_id):
-				visited.append(entity_id)
+			if game_node.has_method("record_visited_dock"):
+				game_node.call("record_visited_dock", entity_id, current_room, global_position)
+			else:
+				var visited: Array = game_node.get("visited_docks")
+				if not visited.has(entity_id):
+					visited.append(entity_id)
 
 		var events_node: Node = root.get_node_or_null("Events")
 		if events_node != null:

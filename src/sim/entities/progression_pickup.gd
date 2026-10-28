@@ -106,6 +106,8 @@ func collect(collector: Node) -> void:
 		var w: World = n as World
 		if entity_id != "" and w.has_method("record_taken_pickup"):
 			w.call("record_taken_pickup", entity_id)
+		if w.has_method("sync_fsm_with_game"):
+			w.call("sync_fsm_with_game")
 
 	queue_free()
 

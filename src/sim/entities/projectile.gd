@@ -78,6 +78,13 @@ func _check_direct_hits() -> void:
 	for child: Node in parent_node.get_children():
 		if not is_instance_valid(child) or child == source_machine:
 			continue
+		if child is Switch:
+			var sw: Switch = child as Switch
+			if global_position.distance_to(sw.global_position) <= 12.0:
+				sw.trigger()
+				is_active = false
+				queue_free()
+				return
 		if child is Machine:
 			var m: Machine = child as Machine
 			var hit_dist: float = 10.0
@@ -105,6 +112,11 @@ func _apply_hit(target_machine: Machine) -> void:
 
 func _on_area_entered(area: Area2D) -> void:
 	if not is_active or not is_instance_valid(area):
+		return
+	if area is Switch:
+		(area as Switch).trigger()
+		is_active = false
+		queue_free()
 		return
 	var target_machine: Machine = null
 	if is_instance_valid(area.owner) and area.owner is Machine:

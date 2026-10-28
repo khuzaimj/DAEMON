@@ -19,6 +19,8 @@ func save_slot(slot_idx: int) -> bool:
 	_ensure_saves_dir()
 	var game_node: Node = get_node_or_null("/root/Game")
 	var world_node: Node = _find_world_node()
+	if world_node != null and world_node.has_method("save_current_room_delta"):
+		world_node.call("save_current_room_delta")
 
 	var save_dict: Dictionary = SaveData.serialize(game_node, world_node)
 	var path: String = get_slot_path(slot_idx)
@@ -74,7 +76,20 @@ func apply_save_to_game(data: Dictionary, world: Node = null) -> void:
 			dock_arr.append(str(d))
 		game_node.set("visited_docks", dock_arr)
 
+		if m_dict.has("dock_locations") and game_node.get("dock_locations") != null:
+			var g_dlocs: Dictionary = game_node.get("dock_locations") as Dictionary
+			g_dlocs.clear()
+			var saved_dlocs: Dictionary = m_dict["dock_locations"] as Dictionary
+			for dk: Variant in saved_dlocs.keys():
+				g_dlocs[str(dk)] = saved_dlocs[dk]
+
 		var rooms_map: Dictionary = data.get("rooms", {}) as Dictionary
+		if game_node.get("room_deltas") != null:
+			var g_deltas: Dictionary = game_node.get("room_deltas") as Dictionary
+			g_deltas.clear()
+			for r_key: Variant in rooms_map.keys():
+				g_deltas[str(r_key)] = (rooms_map[r_key] as Dictionary).duplicate(true)
+
 		var p_hosts: Dictionary = game_node.get("persistent_parked_hosts") as Dictionary
 		p_hosts.clear()
 		for r_key: Variant in rooms_map.keys():

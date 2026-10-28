@@ -75,6 +75,12 @@ func test_logic_lab_puzzle_and_persistence_scenario() -> void:
 	if game != null:
 		assert_true(game.logs.has("log_debug_overview"), "Log collected into Game.logs")
 
+	# Activate Dock in debug_12
+	var docks: Array = world.get_tree().get_nodes_in_group("docks")
+	assert_gt(docks.size(), 0, "Dock spawned in debug_12")
+	var dock_node: Dock = docks[0] as Dock
+	dock_node.activate_dock(world.player_machine)
+
 	# 6. Save slot 1
 	var save_sys: Node = get_node_or_null("/root/SaveSystem")
 	assert_not_null(save_sys, "SaveSystem autoload registered")
@@ -96,3 +102,20 @@ func test_logic_lab_puzzle_and_persistence_scenario() -> void:
 		assert_true(game.logs.has("log_debug_overview"), "Logs restored")
 		assert_true(game.discovered_rooms.has("debug_11"), "Discovered rooms restored")
 		assert_true(game.discovered_rooms.has("debug_12"), "Discovered rooms restored")
+
+	# 8. Return to debug_11: verify latch_1 and bridge_1 are restored as active
+	world.load_room("debug_11")
+	assert_eq(world.current_room_id, "debug_11", "debug_11 reloaded")
+	world.logic_system.step(world, 2)
+	assert_true(world.logic_system.is_active("latch_1"), "latch_1 restored active across room transition and load")
+	assert_true(world.logic_system.is_active("bridge_1"), "bridge_1 restored active across room transition and load")
+	var restored_bridge: Bridge = world.logic_system.get_entity("bridge_1") as Bridge
+	assert_not_null(restored_bridge, "Bridge entity found")
+	assert_true(restored_bridge.is_active, "Bridge extended over pit after reload")
+
+	# 9. Test Fast Travel back to debug_12 Dock via Bus Pass
+	if game != null:
+		var traveled: bool = game.fast_travel_to_dock("dock_debug_12", world)
+		assert_true(traveled, "Fast travel to debug_12 dock succeeded")
+		assert_eq(world.current_room_id, "debug_12", "Player arrived in debug_12 via bus fast travel")
+		assert_eq(world.taken_pickups_in_room.size(), pickups.size() + logs.size(), "Pickups remain taken in debug_12")

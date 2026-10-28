@@ -44,6 +44,14 @@ static func start_melee_arc(machine: Machine, data: Dictionary, dir: Vector2) ->
 				var kb_vec: Vector2 = AbilityMath.calculate_knockback(origin, target.global_position, knockback * float(Grid.TILE_SIZE))
 				target.apply_knockback(kb_vec)
 
+		var tree: SceneTree = world_node.get_tree()
+		if tree != null:
+			for sw_node: Node in tree.get_nodes_in_group("switches"):
+				if sw_node is Switch and is_instance_valid(sw_node):
+					var sw: Switch = sw_node as Switch
+					if AbilityMath.is_point_in_arc(origin, norm_dir, sw.global_position, arc_deg, radius_px):
+						sw.trigger()
+
 static func start_claw(machine: Machine, data: Dictionary, dir: Vector2) -> void:
 	if machine == null or not is_instance_valid(machine):
 		return
@@ -70,6 +78,14 @@ static func start_claw(machine: Machine, data: Dictionary, dir: Vector2) -> void
 				target.take_damage(damage, "kinetic", false, impact_dir)
 				var kb_vec: Vector2 = AbilityMath.calculate_knockback(origin, target.global_position, knockback * float(Grid.TILE_SIZE))
 				target.apply_knockback(kb_vec)
+
+		var tree: SceneTree = world_node.get_tree()
+		if tree != null:
+			for sw_node: Node in tree.get_nodes_in_group("switches"):
+				if sw_node is Switch and is_instance_valid(sw_node):
+					var sw: Switch = sw_node as Switch
+					if AbilityMath.is_point_in_arc(origin, norm_dir, sw.global_position, arc_deg, radius_px):
+						sw.trigger()
 
 static func start_suction(machine: Machine, data: Dictionary, _dir: Vector2) -> void:
 	if machine == null or not is_instance_valid(machine):

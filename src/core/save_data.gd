@@ -92,9 +92,37 @@ static func serialize(game: Node, world: Node) -> Dictionary:
 				v_arr.append(str(d))
 			map_dict["visited_docks"] = v_arr
 
+		var d_locs: Variant = game.get("dock_locations")
+		if d_locs is Dictionary:
+			var saved_locs: Dictionary = {}
+			for d_k: Variant in (d_locs as Dictionary).keys():
+				var info: Dictionary = (d_locs as Dictionary)[d_k] as Dictionary
+				var pos_val: Variant = info.get("position", Vector2.ZERO)
+				var pos_arr: Array = [0.0, 0.0]
+				if pos_val is Vector2:
+					pos_arr = [float((pos_val as Vector2).x), float((pos_val as Vector2).y)]
+				elif pos_val is Array and (pos_val as Array).size() >= 2:
+					pos_arr = [float(pos_val[0]), float(pos_val[1])]
+				saved_locs[str(d_k)] = {
+					"room_id": str(info.get("room_id", "")),
+					"position": pos_arr
+				}
+			map_dict["dock_locations"] = saved_locs
+
+		var rooms_dict: Dictionary = data["rooms"] as Dictionary
+		var r_deltas: Variant = game.get("room_deltas")
+		if r_deltas is Dictionary:
+			for r_id: Variant in (r_deltas as Dictionary).keys():
+				var r_key: String = str(r_id)
+				var d_in: Dictionary = (r_deltas as Dictionary)[r_id] as Dictionary
+				if not rooms_dict.has(r_key):
+					rooms_dict[r_key] = _create_empty_room_delta()
+				for k: String in ["opened_doors", "broken_tiles", "latches", "taken_pickups", "defeated_unique", "parked_hosts"]:
+					if d_in.has(k):
+						rooms_dict[r_key][k] = d_in[k]
+
 		var p_hosts: Variant = game.get("persistent_parked_hosts")
 		if p_hosts is Dictionary:
-			var rooms_dict: Dictionary = data["rooms"] as Dictionary
 			for r_id: Variant in (p_hosts as Dictionary).keys():
 				var r_key: String = str(r_id)
 				if not rooms_dict.has(r_key):
@@ -164,6 +192,21 @@ static func _restore_types(data: Dictionary) -> Dictionary:
 			docks.append(str(d))
 		m["visited_docks"] = docks
 
+		if m.has("dock_locations") and m["dock_locations"] is Dictionary:
+			var d_locs: Dictionary = {}
+			var raw_d_locs: Dictionary = m["dock_locations"] as Dictionary
+			for dk: Variant in raw_d_locs.keys():
+				var info: Dictionary = raw_d_locs[dk] as Dictionary
+				var pos_val: Variant = info.get("position", [0.0, 0.0])
+				var pos_arr: Array = [0.0, 0.0]
+				if pos_val is Array and (pos_val as Array).size() >= 2:
+					pos_arr = [float((pos_val as Array)[0]), float((pos_val as Array)[1])]
+				d_locs[str(dk)] = {
+					"room_id": str(info.get("room_id", "")),
+					"position": pos_arr
+				}
+			m["dock_locations"] = d_locs
+
 	if result.has("rooms") and result["rooms"] is Dictionary:
 		var r_map: Dictionary = result["rooms"] as Dictionary
 		for r_key: Variant in r_map.keys():
@@ -171,9 +214,36 @@ static func _restore_types(data: Dictionary) -> Dictionary:
 			if r_entry.has("broken_tiles") and r_entry["broken_tiles"] is Array:
 				var tiles: Array = []
 				for pt: Variant in r_entry["broken_tiles"]:
-					if pt is Array and (pt as Array).size() >= 2:
+					if pt is Array and (pt as Array).size() >= 3:
+						tiles.append([int((pt as Array)[0]), int((pt as Array)[1]), str((pt as Array)[2])])
+					elif pt is Array and (pt as Array).size() >= 2:
 						tiles.append([int((pt as Array)[0]), int((pt as Array)[1])])
 				r_entry["broken_tiles"] = tiles
+
+			if r_entry.has("opened_doors") and r_entry["opened_doors"] is Array:
+				var doors: Array = []
+				for d: Variant in r_entry["opened_doors"]:
+					doors.append(str(d))
+				r_entry["opened_doors"] = doors
+
+			if r_entry.has("taken_pickups") and r_entry["taken_pickups"] is Array:
+				var picks: Array = []
+				for pk: Variant in r_entry["taken_pickups"]:
+					picks.append(str(pk))
+				r_entry["taken_pickups"] = picks
+
+			if r_entry.has("defeated_unique") and r_entry["defeated_unique"] is Array:
+				var defs: Array = []
+				for df: Variant in r_entry["defeated_unique"]:
+					defs.append(str(df))
+				r_entry["defeated_unique"] = defs
+
+			if r_entry.has("latches") and r_entry["latches"] is Dictionary:
+				var l_dict: Dictionary = {}
+				var raw_l: Dictionary = r_entry["latches"] as Dictionary
+				for lk: Variant in raw_l.keys():
+					l_dict[str(lk)] = bool(raw_l[lk])
+				r_entry["latches"] = l_dict
 
 	return result
 

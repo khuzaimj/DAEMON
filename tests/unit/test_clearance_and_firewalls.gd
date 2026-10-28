@@ -47,11 +47,14 @@ func test_three_shards_auto_grants_clearance_l2() -> void:
 	game.call("reset")
 	assert_eq(int(game.get("clearance")), 0)
 
-	game.call("add_upgrade", "shards", 2)
+	# Test normalization of single "shard" pickups
+	game.call("add_upgrade", "shard", 2)
 	assert_eq(int(game.get("clearance")), 0, "2 shards do not grant L2")
+	assert_eq(int(game.upgrades["shards"]), 2, "'shard' normalized to 'shards'")
 
-	game.call("add_upgrade", "shards", 1)
+	game.call("add_upgrade", "shard", 1)
 	assert_true(int(game.get("clearance")) >= 2, "3 shards automatically grant Clearance L2")
+	assert_eq(int(game.upgrades["shards"]), 3, "'shards' count is 3")
 
 func test_unique_enemy_death_persistence() -> void:
 	var world_scene: PackedScene = load("res://scenes/world.tscn")

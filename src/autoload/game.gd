@@ -21,11 +21,16 @@ var discovered_rooms: Array[String] = []
 var last_dock_room_id: String = ""
 var last_dock_spawn_pos: Vector2 = Vector2.ZERO
 var visited_docks: Array[String] = []
+var dock_locations: Dictionary = {} # dock_id -> { "room_id": String, "position": Vector2 }
 var garage_slots_cap: int = 3
 var persistent_parked_hosts: Dictionary = {} # room_id -> Array[Dictionary]
+var room_deltas: Dictionary = {} # room_id -> Dictionary
 var registered_models: Array[String] = ["cursor"]
 
 func add_upgrade(type: String, count: int = 1) -> void:
+	if type == "shard":
+		type = "shards"
+
 	if upgrades.has(type):
 		upgrades[type] = int(upgrades[type]) + count
 	else:
@@ -39,6 +44,11 @@ func add_upgrade(type: String, count: int = 1) -> void:
 		clearance = maxi(clearance, count)
 	elif type == "bus_pass":
 		has_bus_pass = true
+
+func record_visited_dock(dock_id: String, room_id: String, pos: Vector2) -> void:
+	if not visited_docks.has(dock_id):
+		visited_docks.append(dock_id)
+	dock_locations[dock_id] = { "room_id": room_id, "position": pos }
 
 func discover_room(room_id: String) -> void:
 	if room_id != "" and not discovered_rooms.has(room_id):
@@ -57,8 +67,30 @@ func add_log(log_id: String) -> void:
 func fast_travel_to_dock(dock_id: String, world: Node) -> bool:
 	if not has_bus_pass or not visited_docks.has(dock_id):
 		return false
+	var target_room: String = ""
+	var target_pos: Vector2 = Vector2.ZERO
+	if dock_locations.has(dock_id):
+		var info: Dictionary = dock_locations[dock_id] as Dictionary
+		target_room = str(info.get("room_id", ""))
+		var raw_pos: Variant = info.get("position", Vector2.ZERO)
+		if raw_pos is Vector2:
+			target_pos = raw_pos
+		elif raw_pos is Array and (raw_pos as Array).size() >= 2:
+			target_pos = Vector2(float(raw_pos[0]), float(raw_pos[1]))
+	elif last_dock_room_id != "":
+		target_room = last_dock_room_id
+		target_pos = last_dock_spawn_pos
+	else:
+		target_room = dock_id
+
+	if target_room == "":
+		target_room = dock_id
+
 	if world != null and world.has_method("load_room"):
-		world.call("load_room", dock_id)
+		world.call("load_room", target_room)
+		var pm: Variant = world.get("player_machine")
+		if pm != null and is_instance_valid(pm as Node) and target_pos != Vector2.ZERO:
+			(pm as Node2D).position = target_pos
 		return true
 	return false
 
@@ -91,6 +123,8 @@ func reset() -> void:
 	last_dock_room_id = ""
 	last_dock_spawn_pos = Vector2.ZERO
 	visited_docks.clear()
+	dock_locations.clear()
 	garage_slots_cap = 3
 	persistent_parked_hosts.clear()
+	room_deltas.clear()
 	registered_models = ["cursor"]

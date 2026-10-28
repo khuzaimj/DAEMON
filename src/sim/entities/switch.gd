@@ -13,8 +13,8 @@ var visual_rect: ColorRect = null
 
 func _ready() -> void:
 	add_to_group("switches")
-	# Layer 7: trigger (64)
-	collision_layer = 1 << 6
+	# Layer 7: trigger (64) + Layer 6: hurtbox (32)
+	collision_layer = (1 << 6) | (1 << 5)
 	# Monitor Layer 5: hitbox (16)
 	collision_mask = 1 << 4
 

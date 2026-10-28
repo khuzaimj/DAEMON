@@ -19,6 +19,7 @@ var _static_body_conduit: StaticBody2D = null
 var _static_body_pit: StaticBody2D = null
 var _static_body_magnetic: StaticBody2D = null
 var _collapsing_regions: Array[Dictionary] = []
+var broken_tiles: Array = [] # Array of [x, y, new_glyph]
 
 func setup(data: Dictionary) -> void:
 	room_data = data
@@ -26,6 +27,7 @@ func setup(data: Dictionary) -> void:
 	exits = data.get("exits", {})
 	grid.clear()
 	_collapsing_regions.clear()
+	broken_tiles.clear()
 	var raw_grid: Array = data.get("grid", [])
 	for row: Variant in raw_grid:
 		grid.append(str(row))
@@ -220,7 +222,7 @@ func get_exit_at(pixel_pos: Vector2) -> String:
 		return exits["s"]
 	return ""
 
-func set_tile_at(cell: Vector2i, new_glyph: String, rebuild_collision: bool = true) -> void:
+func set_tile_at(cell: Vector2i, new_glyph: String, rebuild_collision: bool = true, record_delta: bool = true) -> void:
 	if not Grid.is_in_room_bounds(cell):
 		return
 	if cell.y >= grid.size() or cell.x >= grid[cell.y].length():
@@ -234,8 +236,30 @@ func set_tile_at(cell: Vector2i, new_glyph: String, rebuild_collision: bool = tr
 			idx = 0
 		_tilemap_layer.set_cell(cell, 0, Vector2i(idx, 0))
 		
+	if record_delta:
+		var found: bool = false
+		for entry: Variant in broken_tiles:
+			if entry is Array and (entry as Array).size() >= 2:
+				if int((entry as Array)[0]) == cell.x and int((entry as Array)[1]) == cell.y:
+					(entry as Array)[2] = new_glyph
+					found = true
+					break
+		if not found:
+			broken_tiles.append([cell.x, cell.y, new_glyph])
+
 	if rebuild_collision:
 		_build_collision()
+
+func replay_broken_tiles(tiles_list: Array) -> void:
+	broken_tiles.clear()
+	for entry: Variant in tiles_list:
+		if entry is Array and (entry as Array).size() >= 3:
+			var cx: int = int((entry as Array)[0])
+			var cy: int = int((entry as Array)[1])
+			var glyph: String = str((entry as Array)[2])
+			set_tile_at(Vector2i(cx, cy), glyph, false, false)
+			broken_tiles.append([cx, cy, glyph])
+	_build_collision()
 
 func trigger_collapse(cell: Vector2i) -> void:
 	if not Grid.is_in_room_bounds(cell):
@@ -266,7 +290,7 @@ func step_collapsing(world: Node) -> void:
 			var cells: Array = reg["cells"] as Array
 			for c_val: Variant in cells:
 				var c: Vector2i = c_val as Vector2i
-				set_tile_at(c, "o", false)
+				set_tile_at(c, "o", false, false)
 			_build_collision()
 			if world != null:
 				var machines_val: Variant = world.get("machines")

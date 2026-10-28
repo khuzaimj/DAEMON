@@ -35,6 +35,7 @@ var dash_damage: int = 0
 var dash_knockback: float = 0.0
 var dash_hit_machines: Array[Machine] = []
 var knockback_velocity: Vector2 = Vector2.ZERO
+var movement_tick: int = 0
 
 var body_data: Dictionary = {}
 var enemy_data: Dictionary = {}
@@ -183,6 +184,24 @@ func apply_body_data(data: Dictionary) -> void:
 			passives.append(str(p))
 			
 	state.setup_from_dict(data)
+
+	# Apply permanent player progression upgrades across all bodies (SPEC §1.8)
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var root_w: Window = (main_loop as SceneTree).root
+		if root_w != null:
+			var game_node: Node = root_w.get_node_or_null("Game")
+			if game_node != null:
+				var upg_val: Variant = game_node.get("upgrades")
+				if upg_val is Dictionary:
+					var chips: int = int((upg_val as Dictionary).get("integrity_chip", 0))
+					var sinks: int = int((upg_val as Dictionary).get("heat_sink", 0))
+					if chips > 0:
+						state.max_integrity += chips
+						state.current_integrity = state.max_integrity
+					if sinks > 0:
+						state.max_heat += float(sinks) * 10.0
+
 	if data.has("clearance"):
 		clearance_level = int(data["clearance"])
 	if data.has("is_immune"):
@@ -391,6 +410,7 @@ func _handle_slide_collision(col: KinematicCollision2D, delta: float) -> void:
 
 ## Called once per tick by World movement system
 func step_movement(delta: float) -> void:
+	movement_tick += 1
 	if not state.can_act():
 		if is_dashing:
 			_end_dash()
@@ -479,7 +499,7 @@ func step_movement(delta: float) -> void:
 		if hazard_type == "spikes":
 			if not TerrainRules.is_insulated(passives, body_id) and not mediums.has("hover"):
 				var spike_interval: int = TerrainRules.get_rule_int(current_room._rules_def, "spike_interval_ticks", 30)
-				if Engine.get_physics_frames() % spike_interval == 0:
+				if movement_tick % spike_interval == 0:
 					var spike_dmg: int = TerrainRules.get_rule_int(current_room._rules_def, "spike_damage", 1)
 					take_damage(spike_dmg, "kinetic")
 
@@ -487,7 +507,7 @@ func step_movement(delta: float) -> void:
 		if hazard_type == "electric":
 			if not TerrainRules.is_insulated(passives, body_id) and not mediums.has("hover"):
 				var elec_interval: int = TerrainRules.get_rule_int(current_room._rules_def, "electric_interval_ticks", 30)
-				if Engine.get_physics_frames() % elec_interval == 0:
+				if movement_tick % elec_interval == 0:
 					var elec_dmg: int = TerrainRules.get_rule_int(current_room._rules_def, "electric_damage", 1)
 					var elec_heat: float = TerrainRules.get_rule_float(current_room._rules_def, "electric_heat", 10.0)
 					take_damage(elec_dmg, "electric")

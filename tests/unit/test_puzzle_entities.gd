@@ -297,3 +297,74 @@ func test_broken_structure_repair_and_persistence() -> void:
 	var saved_delta: Dictionary = world.logic_system.get_persistent_state()
 	assert_true(saved_delta.has("broken_1"), "Broken structure state should be present in persistent delta")
 	assert_true(saved_delta["broken_1"], "Broken structure state should be true in delta")
+
+func test_switch_interact_and_attack_triggers() -> void:
+	var room_data: Dictionary = {
+		"entities": [
+			{ "id": "sw_test", "kind": "switch", "on": false }
+		],
+		"links": []
+	}
+	world.logic_system.setup_room(room_data)
+
+	var sw: Switch = Switch.new()
+	sw.entity_id = "sw_test"
+	sw.position = Vector2(100, 100)
+	world.entities_container.add_child(sw)
+	world.logic_system.register_entity("sw_test", sw)
+	world.logic_system.step(world, 1)
+	assert_false(sw.is_on, "Switch starts off")
+
+	# 1. Interact trigger when player is within 20 px
+	var p_m: Machine = Machine.new()
+	p_m.operational_state = "player"
+	p_m.position = Vector2(110, 100) # 10 px away <= 20 px
+	p_m.current_intent.interact = true
+	world.player_machine = p_m
+	world.machines.append(p_m)
+	world.entities_container.add_child(p_m)
+
+	world._step_hijack(0.016)
+	world.logic_system.step(world, 2)
+	assert_true(sw.is_on, "Switch toggled on by player interact within 20 px")
+
+	# 2. Attack trigger via Projectile
+	var proj: Projectile = Projectile.new()
+	proj.position = Vector2(98, 100)
+	proj.velocity = Vector2(100, 0)
+	proj.radius = 4.0
+	world.entities_container.add_child(proj)
+	world.projectiles.append(proj)
+	proj._check_direct_hits()
+	world.logic_system.step(world, 3)
+	assert_false(sw.is_on, "Switch toggled off by projectile hit")
+
+	# 3. Attack trigger via Melee Arc
+	var arc_data: Dictionary = {
+		"params": {
+			"arc": 90.0,
+			"radius": 32.0,
+			"damage": 2
+		}
+	}
+	p_m.position = Vector2(85, 100)
+	p_m.facing = Vector2.RIGHT
+	MeleeAbilities.start_melee_arc(p_m, arc_data, Vector2.RIGHT)
+	world.logic_system.step(world, 4)
+	assert_true(sw.is_on, "Switch toggled on by melee arc attack")
+
+func test_lift_start_end_pos_and_duration() -> void:
+	var lift: Lift = Lift.new()
+	lift.entity_id = "lift_endpoints"
+	lift.configure_endpoints(Vector2(50, 50), Vector2(50, 110), 2.0)
+	assert_eq(lift.start_pos, Vector2(50, 50), "Start position configured")
+	assert_eq(lift.target_pos, Vector2(50, 110), "Target position configured")
+	assert_eq(lift.travel_distance, 60.0, "Travel distance computed accurately")
+	assert_eq(lift.travel_speed, 30.0, "Travel speed computed accurately from duration (60 / 2 = 30)")
+
+	world.entities_container.add_child(lift)
+	world.logic_system.register_entity("lift_endpoints", lift)
+
+	lift.set_active(true)
+	lift.step(1.0) # Step 1 second -> moves 30 px down
+	assert_eq(lift.position, Vector2(50, 80), "Lift moved halfway (30 px) after 1.0s at 30 px/s")

@@ -422,30 +422,114 @@ const BODY_CYCLE_ORDER: Array[String] = [
 	"welder", "diver", "crawler", "courier", "medic"
 ]
 
+func swap_player_body(target_body_id: String) -> void:
+	if player_machine == null or not is_instance_valid(player_machine):
+		return
+	var b_id: String = target_body_id.to_lower()
+	var data_node: Node = get_node_or_null("/root/Data")
+	var body_dict: Dictionary = {}
+	if data_node != null and data_node.has_method("get_json"):
+		var raw: Variant = data_node.call("get_json", "res://data/bodies/%s.json" % b_id)
+		if raw is Dictionary:
+			body_dict = raw
+	elif FileAccess.file_exists("res://data/bodies/%s.json" % b_id):
+		var file: FileAccess = FileAccess.open("res://data/bodies/%s.json" % b_id, FileAccess.READ)
+		if file != null:
+			var json: JSON = JSON.new()
+			if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
+				body_dict = json.data as Dictionary
+
+	if not body_dict.is_empty():
+		player_machine.apply_body_data(body_dict)
+		if b_id == "cursor":
+			hijack_fsm.state = HijackFSM.State.CURSOR
+			hijack_fsm.current_host_id = ""
+		else:
+			hijack_fsm.state = HijackFSM.State.HOSTED
+			hijack_fsm.current_host_id = "player"
+		_update_hud()
+		print("World: Swapped player body to: %s (%s)" % [player_machine.body_id, player_machine.size_class.to_upper()])
+
 func cycle_player_body() -> void:
 	if player_machine == null or not is_instance_valid(player_machine):
 		return
 	var current_idx: int = BODY_CYCLE_ORDER.find(player_machine.body_id.to_lower())
 	var next_idx: int = (current_idx + 1) % BODY_CYCLE_ORDER.size()
-	var next_body_id: String = BODY_CYCLE_ORDER[next_idx]
-	
-	var data_node: Node = get_node_or_null("/root/Data")
-	var body_dict: Dictionary = {}
-	if data_node != null and data_node.has_method("get_json"):
-		var raw: Variant = data_node.call("get_json", "res://data/bodies/%s.json" % next_body_id)
-		if raw is Dictionary:
-			body_dict = raw
-	elif FileAccess.file_exists("res://data/bodies/%s.json" % next_body_id):
-		var file: FileAccess = FileAccess.open("res://data/bodies/%s.json" % next_body_id, FileAccess.READ)
-		if file != null:
-			var json: JSON = JSON.new()
-			if json.parse(file.get_as_text()) == OK and json.data is Dictionary:
-				body_dict = json.data as Dictionary
-				
-	if not body_dict.is_empty():
-		player_machine.apply_body_data(body_dict)
-		_update_hud()
-		print("World: Swapped player body to: %s (%s)" % [player_machine.body_id, player_machine.size_class.to_upper()])
+	swap_player_body(BODY_CYCLE_ORDER[next_idx])
+
+func sync_fsm_with_game() -> void:
+	if hijack_fsm == null:
+		return
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node == null:
+		return
+	hijack_fsm.player_clearance = int(game_node.get("clearance"))
+	var upg: Variant = game_node.get("upgrades")
+	if upg is Dictionary:
+		hijack_fsm.link_range_upgrades = int((upg as Dictionary).get("link_range", 0))
+		hijack_fsm.ttl_upgrades = int((upg as Dictionary).get("ttl_extender", 0))
+		hijack_fsm.recalculate_max_ttl()
+
+func save_current_room_delta() -> void:
+	if current_room_id == "":
+		return
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node == null:
+		return
+	var r_deltas: Dictionary = game_node.get("room_deltas") as Dictionary
+	if r_deltas == null:
+		return
+
+	var delta: Dictionary = {}
+	if r_deltas.has(current_room_id):
+		delta = r_deltas[current_room_id]
+	else:
+		delta = {
+			"opened_doors": [],
+			"broken_tiles": [],
+			"latches": {},
+			"taken_pickups": [],
+			"defeated_unique": [],
+			"parked_hosts": []
+		}
+
+	# 1. Broken tiles
+	if active_room != null and is_instance_valid(active_room):
+		delta["broken_tiles"] = active_room.broken_tiles.duplicate(true)
+
+	# 2. Latches
+	if logic_system != null:
+		delta["latches"] = logic_system.get_persistent_state().duplicate(true)
+
+	# 3. Taken pickups
+	delta["taken_pickups"] = taken_pickups_in_room.duplicate()
+
+	# 4. Defeated unique enemies
+	delta["defeated_unique"] = defeated_enemies_in_room.duplicate()
+
+	# 5. Opened doors
+	var opened: Array[String] = []
+	if is_inside_tree():
+		for door_node: Node in get_tree().get_nodes_in_group("doors"):
+			if door_node is Door and (door_node as Door).is_open:
+				opened.append((door_node as Door).entity_id)
+	delta["opened_doors"] = opened
+
+	# 6. Parked hosts
+	_save_current_room_parked_hosts()
+	var p_hosts: Dictionary = game_node.get("persistent_parked_hosts") as Dictionary
+	if p_hosts != null and p_hosts.has(current_room_id):
+		delta["parked_hosts"] = p_hosts[current_room_id]
+
+	r_deltas[current_room_id] = delta
+
+func _get_room_delta(r_id: String) -> Dictionary:
+	var game_node: Node = get_node_or_null("/root/Game")
+	if game_node != null and game_node.get("room_deltas") != null:
+		var r_deltas: Dictionary = game_node.get("room_deltas") as Dictionary
+		if r_deltas.has(r_id):
+			return r_deltas[r_id] as Dictionary
+	return {}
 
 func toggle_input_recording() -> void:
 	is_recording_input = not is_recording_input
@@ -517,13 +601,18 @@ func _step_hijack(delta: float) -> void:
 	if player_machine == null or not is_instance_valid(player_machine):
 		return
 
-	# Dock interaction for Garage Fabricate popup
+	# Dock interaction for Garage Fabricate popup & Switch interact
 	if player_machine.current_intent.interact:
 		if is_inside_tree() and (garage_dialog == null or not garage_dialog.visible):
 			for dock_node: Node in get_tree().get_nodes_in_group("docks"):
 				if dock_node is Dock and (dock_node as Dock).overlaps_body(player_machine):
 					open_garage_dialog(dock_node as Dock)
 					return
+			for sw_node: Node in get_tree().get_nodes_in_group("switches"):
+				if sw_node is Switch and is_instance_valid(sw_node):
+					var sw: Switch = sw_node as Switch
+					if player_machine.global_position.distance_to(sw.global_position) <= 20.0:
+						sw.trigger()
 
 	# Handle routine cycling and pin dropping from player intent
 	if player_machine.current_intent.routine_cycle:
@@ -1065,7 +1154,7 @@ func _clear_room_entities() -> void:
 		machines.append(player_machine)
 	crates.clear()
 
-func _spawn_room_entities(room_data: Dictionary) -> void:
+func _spawn_room_entities(room_data: Dictionary, saved_latches: Dictionary = {}) -> void:
 	room_links.clear()
 	var links_val: Variant = room_data.get("links", [])
 	if links_val is Array:
@@ -1074,7 +1163,7 @@ func _spawn_room_entities(room_data: Dictionary) -> void:
 				room_links.append((l as Dictionary).duplicate())
 
 	if logic_system != null:
-		logic_system.setup_room(room_data)
+		logic_system.setup_room(room_data, saved_latches)
 
 	var entities: Array = room_data.get("entities", [])
 	for ent_variant: Variant in entities:
@@ -1130,13 +1219,21 @@ func _spawn_single_room_entity(ent: Dictionary) -> void:
 		var lift: Lift = Lift.new()
 		lift.entity_id = str(ent.get("id", "lift_01"))
 		lift.position = pos
-		if ent.has("distance"):
-			lift.travel_distance = float(ent["distance"])
-		if ent.has("direction"):
-			var d: Array = ent["direction"]
-			lift.travel_direction = Vector2(float(d[0]), float(d[1]))
-		if ent.has("speed"):
-			lift.travel_speed = float(ent["speed"])
+		if ent.has("start_pos") and ent.has("end_pos"):
+			var sp_arr: Array = ent["start_pos"]
+			var ep_arr: Array = ent["end_pos"]
+			var s_pixel: Vector2 = Vector2(float(sp_arr[0]) * 16.0 + 8.0, float(sp_arr[1]) * 16.0 + 8.0)
+			var e_pixel: Vector2 = Vector2(float(ep_arr[0]) * 16.0 + 8.0, float(ep_arr[1]) * 16.0 + 8.0)
+			var dur: float = float(ent.get("duration", 0.0))
+			lift.configure_endpoints(s_pixel, e_pixel, dur)
+		else:
+			if ent.has("distance"):
+				lift.travel_distance = float(ent["distance"])
+			if ent.has("direction"):
+				var d: Array = ent["direction"]
+				lift.travel_direction = Vector2(float(d[0]), float(d[1]))
+			if ent.has("speed"):
+				lift.travel_speed = float(ent["speed"])
 		entities_container.add_child(lift)
 		if logic_system != null:
 			logic_system.register_entity(lift.entity_id, lift)
@@ -1428,6 +1525,7 @@ func _spawn_single_room_entity(ent: Dictionary) -> void:
 func start_transition(next_room_id: String, dir: Vector2) -> void:
 	if is_transitioning:
 		return
+	save_current_room_delta()
 	_save_current_room_parked_hosts()
 	_clear_transient_projectiles()
 
@@ -1510,8 +1608,21 @@ func _finish_transition() -> void:
 		var room_path: String = WorldGrid.find_room_path(current_room_id)
 		if room_path != "":
 			var r_data: Dictionary = RoomLoader.load_room(room_path)
-			_spawn_room_entities(r_data)
+			var saved_delta: Dictionary = _get_room_delta(current_room_id)
+			if not saved_delta.is_empty() and saved_delta.has("broken_tiles"):
+				active_room.replay_broken_tiles(saved_delta["broken_tiles"])
+			taken_pickups_in_room.clear()
+			if not saved_delta.is_empty() and saved_delta.has("taken_pickups"):
+				for p_id: Variant in saved_delta["taken_pickups"]:
+					taken_pickups_in_room.append(str(p_id))
+			defeated_enemies_in_room.clear()
+			if not saved_delta.is_empty() and saved_delta.has("defeated_unique"):
+				for e_id: Variant in saved_delta["defeated_unique"]:
+					defeated_enemies_in_room.append(str(e_id))
+			var saved_latches: Dictionary = saved_delta.get("latches", {}) if not saved_delta.is_empty() else {}
+			_spawn_room_entities(r_data, saved_latches)
 			_restore_current_room_parked_hosts()
+			sync_fsm_with_game()
 
 	is_transitioning = false
 	var game_node: Node = get_node_or_null("/root/Game")
@@ -1535,6 +1646,7 @@ func load_room(room_id: String) -> void:
 			active_boss_controller.queue_free()
 		active_boss_controller = null
 	if current_room_id != "" and current_room_id != room_id:
+		save_current_room_delta()
 		_save_current_room_parked_hosts()
 	current_room_id = room_id
 	var room_path: String = WorldGrid.find_room_path(room_id)
@@ -1560,13 +1672,30 @@ func load_room(room_id: String) -> void:
 	room_container.add_child(active_room)
 	active_room.setup(data)
 	active_room.position = Vector2.ZERO
+
+	var saved_delta: Dictionary = _get_room_delta(current_room_id)
+	if not saved_delta.is_empty() and saved_delta.has("broken_tiles"):
+		active_room.replay_broken_tiles(saved_delta["broken_tiles"])
+
 	if pathfinding_system != null:
 		pathfinding_system.setup_room(active_room)
 
+	taken_pickups_in_room.clear()
+	if not saved_delta.is_empty() and saved_delta.has("taken_pickups"):
+		for p_id: Variant in saved_delta["taken_pickups"]:
+			taken_pickups_in_room.append(str(p_id))
+
+	defeated_enemies_in_room.clear()
+	if not saved_delta.is_empty() and saved_delta.has("defeated_unique"):
+		for e_id: Variant in saved_delta["defeated_unique"]:
+			defeated_enemies_in_room.append(str(e_id))
+
 	_clear_room_entities()
 	_setup_player_machine(data)
-	_spawn_room_entities(data)
+	var saved_latches: Dictionary = saved_delta.get("latches", {}) if not saved_delta.is_empty() else {}
+	_spawn_room_entities(data, saved_latches)
 	_restore_current_room_parked_hosts()
+	sync_fsm_with_game()
 	var pause_ttl: bool = false
 	if data.has("rules") and data["rules"] is Dictionary:
 		pause_ttl = bool((data["rules"] as Dictionary).get("pause_ttl_until_hijack", false))

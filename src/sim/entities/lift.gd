@@ -20,8 +20,12 @@ func _ready() -> void:
 	collision_mask = 0
 	motion_mode = CharacterBody2D.MOTION_MODE_FLOATING
 
-	start_pos = position
-	target_pos = start_pos + travel_direction.normalized() * travel_distance
+	if target_pos == Vector2.ZERO and travel_distance > 0.0:
+		if start_pos == Vector2.ZERO:
+			start_pos = position
+		target_pos = start_pos + travel_direction.normalized() * travel_distance
+	elif start_pos == Vector2.ZERO:
+		start_pos = position
 
 	collider = get_node_or_null("CollisionShape2D") as CollisionShape2D
 	if collider == null:
@@ -46,6 +50,19 @@ func _ready() -> void:
 func set_active(active: bool) -> void:
 	is_active = active
 	lift_state_changed.emit(entity_id, is_active)
+
+func configure_endpoints(p_start: Vector2, p_end: Vector2, p_duration: float = 0.0) -> void:
+	start_pos = p_start
+	target_pos = p_end
+	position = p_start
+	var dist: float = start_pos.distance_to(target_pos)
+	travel_distance = dist
+	if dist > 0.0:
+		travel_direction = (target_pos - start_pos).normalized()
+	if p_duration > 0.0:
+		travel_speed = dist / p_duration
+	elif travel_speed <= 0.0:
+		travel_speed = 32.0
 
 func step(delta: float) -> void:
 	var dest: Vector2 = target_pos if is_active else start_pos
