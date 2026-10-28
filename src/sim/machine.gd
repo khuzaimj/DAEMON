@@ -36,6 +36,11 @@ var dash_knockback: float = 0.0
 var dash_hit_machines: Array[Machine] = []
 var knockback_velocity: Vector2 = Vector2.ZERO
 
+var body_data: Dictionary = {}
+var enemy_data: Dictionary = {}
+var enemy_id: String = ""
+var faction: String = "neutral"
+
 @onready var collider: CollisionShape2D = $Collider
 @onready var sprite: AnimatedSprite2D = $Sprite
 @onready var glow: AnimatedSprite2D = $Glow
@@ -157,6 +162,7 @@ func _get_default_color_for_body() -> Color:
 		_: return Color(0.1, 0.8, 0.9, 1.0)
 
 func apply_body_data(data: Dictionary) -> void:
+	body_data = data
 	body_id = str(data.get("id", body_id))
 	size_class = str(data.get("size", size_class))
 	base_speed_tiles = float(data.get("speed", base_speed_tiles))
@@ -187,6 +193,15 @@ func apply_body_data(data: Dictionary) -> void:
 	if abilities != null:
 		abilities.setup(self, primary_ability, secondary_ability)
 
+func get_faction() -> String:
+	if faction != "" and faction != "neutral":
+		return faction
+	if operational_state == "player" or operational_state == "parked":
+		return "player"
+	if operational_state == "hostile":
+		return "hostile"
+	return "neutral"
+
 func is_open() -> bool:
 	if operational_state == "dormant" or operational_state == "parked":
 		return true
@@ -194,10 +209,31 @@ func is_open() -> bool:
 		return state.is_open()
 	return false
 
-func take_damage(amount: int, damage_type: String = "kinetic", ignore_invuln: bool = false) -> bool:
-	if damage_type == "thermal" and (passives.has("fire_immune") or body_id == "welder"):
+func take_damage(amount: int, damage_type: String = "kinetic", ignore_invuln: bool = false, impact_dir: Vector2 = Vector2.ZERO) -> bool:
+	var effective_damage: int = CombatMath.calculate_damage(
+		amount,
+		damage_type,
+		body_data,
+		passives,
+		facing,
+		impact_dir
+	)
+	if effective_damage <= 0:
 		return false
-	return state.take_damage(amount, damage_type, ignore_invuln)
+
+	var took: bool = state.take_damage(effective_damage, damage_type, ignore_invuln)
+	if took:
+		if damage_type == "electric":
+			var electric_heat: float = CombatMath.calculate_electric_heat(effective_damage)
+			add_heat(electric_heat)
+
+		var world_node: Node = get_tree().current_scene if is_inside_tree() else null
+		if world_node != null:
+			if world_node.has_method("trigger_hit_stop"):
+				world_node.call("trigger_hit_stop", 3)
+			if world_node.has_method("trigger_screen_shake"):
+				world_node.call("trigger_screen_shake", 2.0, 6)
+	return took
 
 func add_heat(amount: float) -> void:
 	state.add_heat(amount)

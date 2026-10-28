@@ -154,7 +154,7 @@ func is_open() -> bool:
 func can_act() -> bool:
 	if is_crashed or is_overheated:
 		return false
-	if has_status("stun") or has_status("overload"):
+	if has_status("stun") or has_status("overload") or has_status("stagger"):
 		return false
 	return true
 

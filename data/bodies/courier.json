@@ -15,5 +15,7 @@
   "sprite": "courier",
   "clearance": 0,
   "garage_cost": 75,
-  "unlock_zone": "registers"
+  "unlock_zone": "registers",
+  "resist": {},
+  "vulnerable": { "kinetic": 1.2 }
 }

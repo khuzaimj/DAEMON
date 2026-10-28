@@ -2,6 +2,7 @@ class_name Projectile
 extends Area2D
 
 var source_machine: Machine = null
+var source_faction: String = ""
 var velocity: Vector2 = Vector2.ZERO
 var max_distance: float = 128.0
 var distance_traveled: float = 0.0
@@ -32,6 +33,8 @@ func _ready() -> void:
 
 func setup(source: Machine, dir: Vector2, speed_px: float, max_dist_px: float, dmg: int, dmg_type: String = "kinetic") -> void:
 	source_machine = source
+	if source != null:
+		source_faction = source.get_faction()
 	var norm_dir: Vector2 = dir.normalized() if dir != Vector2.ZERO else Vector2.RIGHT
 	velocity = norm_dir * speed_px
 	max_distance = max_dist_px
@@ -75,11 +78,17 @@ func _check_direct_hits() -> void:
 func _apply_hit(target_machine: Machine) -> void:
 	if not is_active:
 		return
+	if source_faction != "":
+		var target_faction: String = target_machine.get_faction()
+		if source_faction == target_faction and (source_faction == "hostile" or source_faction == "player"):
+			return
 	is_active = false
-	target_machine.take_damage(damage, damage_type)
+	var impact_dir: Vector2 = velocity.normalized() if velocity != Vector2.ZERO else Vector2.RIGHT
+	target_machine.take_damage(damage, damage_type, false, impact_dir)
 	if not status_on_hit.is_empty():
 		target_machine.apply_status(status_on_hit, status_duration_ticks)
-	target_machine.apply_knockback(velocity.normalized() * (knockback_force * float(Grid.TILE_SIZE)))
+	var kb_vec: Vector2 = CombatMath.calculate_knockback(impact_dir, knockback_force * float(Grid.TILE_SIZE), target_machine.weight, target_machine.passives)
+	target_machine.apply_knockback(kb_vec)
 	queue_free()
 
 func _on_area_entered(area: Area2D) -> void:

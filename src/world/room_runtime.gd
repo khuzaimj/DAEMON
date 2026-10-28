@@ -53,7 +53,7 @@ func _build_visual_tilemap() -> void:
 	var tile_set: TileSet = TileSet.new()
 	tile_set.tile_size = Vector2i(Grid.TILE_SIZE, Grid.TILE_SIZE)
 
-	var glyph_order: Array[String] = [".", "#", ":", "o", "~", "^", ",", "X", "%"]
+	var glyph_order: Array[String] = [".", "#", ":", "o", "~", "^", ",", "X", "%", "*"]
 	var colors: Array[Color] = [
 		Color(0.12, 0.10, 0.08), # . floor
 		Color(0.30, 0.25, 0.20), # # wall
@@ -63,7 +63,8 @@ func _build_visual_tilemap() -> void:
 		Color(0.50, 0.20, 0.20), # ^ spikes
 		Color(0.20, 0.22, 0.15), # , grime
 		Color(0.40, 0.35, 0.30), # X cracked wall
-		Color(0.55, 0.40, 0.15)  # % weld barrier
+		Color(0.55, 0.40, 0.15), # % weld barrier
+		Color(0.35, 0.10, 0.30)  # * bitrot
 	]
 
 	var img: Image = Image.create(Grid.TILE_SIZE * glyph_order.size(), Grid.TILE_SIZE, false, Image.FORMAT_RGBA8)

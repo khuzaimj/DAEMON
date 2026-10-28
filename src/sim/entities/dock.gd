@@ -70,6 +70,10 @@ func activate_dock(player_m: Machine) -> void:
 		player_m.state.current_heat = 0.0
 		player_m.state.heat_changed.emit(0.0, player_m.state.max_heat)
 
+	var world_node: Node = get_tree().current_scene if get_tree() != null else null
+	if world_node != null and world_node.has_method("respawn_room_enemies"):
+		world_node.call("respawn_room_enemies")
+
 	dock_activated.emit(entity_id)
 
 func can_fabricate(model_id: String, registered_models: Array[String], player_scrap: int) -> bool:

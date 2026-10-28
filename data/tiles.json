@@ -9,6 +9,7 @@
     ":": { "name": "conduit", "fits": "xs" },
     "X": { "name": "cracked", "solid": true, "break_by": "ram" },
     "%": { "name": "weld",    "solid": true, "break_by": "torch" },
+    "*": { "name": "bitrot",  "hazard": "bitrot", "clear_by": "sweep" },
     "}": { "name": "belt_e",  "push": [1, 0] }
   }
 }

@@ -12,6 +12,13 @@ const ABILITY_KINDS: Array[String] = [
 const BODY_KEYS: Array[String] = [
 	"id", "name", "size", "weight", "medium", "speed", "integrity",
 	"heat_max", "heat_cooldown", "primary", "secondary", "passives",
+	"tags", "sprite", "clearance", "garage_cost", "unlock_zone",
+	"resist", "vulnerable"
+]
+
+const BODY_REQUIRED_KEYS: Array[String] = [
+	"id", "name", "size", "weight", "medium", "speed", "integrity",
+	"heat_max", "heat_cooldown", "primary", "secondary", "passives",
 	"tags", "sprite", "clearance", "garage_cost", "unlock_zone"
 ]
 
@@ -26,6 +33,10 @@ const ENEMY_KEYS: Array[String] = [
 
 const AI_PRESET_KEYS: Array[String] = [
 	"id", "initial", "params", "states"
+]
+
+const BOSS_KEYS: Array[String] = [
+	"id", "name", "zone", "arena_room", "body", "phases", "subsystems", "reward"
 ]
 
 static func validate_keys(data: Dictionary, allowed_keys: Array[String], context: String = "") -> Array[String]:
@@ -65,7 +76,7 @@ static func validate_sizes(data: Dictionary, context: String = "sizes.json") -> 
 static func validate_body(data: Dictionary, context: String = "body") -> Array[String]:
 	var errors: Array[String] = []
 	errors.append_array(validate_keys(data, BODY_KEYS, context))
-	for req: String in BODY_KEYS:
+	for req: String in BODY_REQUIRED_KEYS:
 		if not data.has(req):
 			errors.append("%s: missing required key '%s'" % [context, req])
 
@@ -83,6 +94,11 @@ static func validate_body(data: Dictionary, context: String = "body") -> Array[S
 		errors.append("%s: 'passives' must be Array" % context)
 	if not (data.get("tags") is Array):
 		errors.append("%s: 'tags' must be Array" % context)
+
+	if data.has("resist") and not (data["resist"] is Dictionary or data["resist"] is Array):
+		errors.append("%s: 'resist' must be Dictionary or Array" % context)
+	if data.has("vulnerable") and not (data["vulnerable"] is Dictionary or data["vulnerable"] is Array):
+		errors.append("%s: 'vulnerable' must be Dictionary or Array" % context)
 
 	return errors
 
@@ -143,5 +159,23 @@ static func validate_ai_preset(data: Dictionary, context: String = "ai_preset") 
 		errors.append("%s: 'params' must be Dictionary" % context)
 	if not (data.get("states") is Dictionary):
 		errors.append("%s: 'states' must be Dictionary" % context)
+
+	return errors
+
+static func validate_boss(data: Dictionary, context: String = "boss") -> Array[String]:
+	var errors: Array[String] = []
+	errors.append_array(validate_keys(data, BOSS_KEYS, context))
+	for req: String in BOSS_KEYS:
+		if not data.has(req):
+			errors.append("%s: missing required key '%s'" % [context, req])
+
+	var id_val: String = str(data.get("id", ""))
+	if id_val.is_empty() or not is_snake_case(id_val):
+		errors.append("%s: id '%s' must be valid snake_case" % [context, id_val])
+
+	if not (data.get("phases") is Array):
+		errors.append("%s: 'phases' must be Array" % context)
+	if not (data.get("subsystems") is Array):
+		errors.append("%s: 'subsystems' must be Array" % context)
 
 	return errors

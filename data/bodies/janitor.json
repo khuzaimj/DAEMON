@@ -15,5 +15,7 @@
   "sprite": "janitor",
   "clearance": 0,
   "garage_cost": 20,
-  "unlock_zone": "boot"
+  "unlock_zone": "boot",
+  "resist": {},
+  "vulnerable": {}
 }

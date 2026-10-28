@@ -15,5 +15,7 @@
   "sprite": "sentry",
   "clearance": 0,
   "garage_cost": 50,
-  "unlock_zone": "cache"
+  "unlock_zone": "cache",
+  "resist": { "kinetic": 0.7 },
+  "vulnerable": { "electric": 1.3 }
 }

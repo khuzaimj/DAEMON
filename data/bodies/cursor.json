@@ -15,5 +15,7 @@
   "sprite": "cursor",
   "clearance": 0,
   "garage_cost": 0,
-  "unlock_zone": "boot"
+  "unlock_zone": "boot",
+  "resist": {},
+  "vulnerable": {}
 }

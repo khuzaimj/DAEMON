@@ -15,5 +15,7 @@
   "sprite": "welder",
   "clearance": 0,
   "garage_cost": 55,
-  "unlock_zone": "heap"
+  "unlock_zone": "heap",
+  "resist": { "thermal": 0.0 },
+  "vulnerable": { "kinetic": 1.2 }
 }

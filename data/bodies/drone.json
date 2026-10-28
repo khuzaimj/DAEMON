@@ -15,5 +15,7 @@
   "sprite": "drone",
   "clearance": 0,
   "garage_cost": 60,
-  "unlock_zone": "stack"
+  "unlock_zone": "stack",
+  "resist": {},
+  "vulnerable": { "electric": 1.5 }
 }

@@ -15,5 +15,7 @@
   "sprite": "loader",
   "clearance": 0,
   "garage_cost": 40,
-  "unlock_zone": "bus"
+  "unlock_zone": "bus",
+  "resist": { "kinetic": 0.8 },
+  "vulnerable": { "thermal": 1.2 }
 }

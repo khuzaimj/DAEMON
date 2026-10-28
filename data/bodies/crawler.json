@@ -15,5 +15,7 @@
   "sprite": "crawler",
   "clearance": 0,
   "garage_cost": 70,
-  "unlock_zone": "registers"
+  "unlock_zone": "registers",
+  "resist": { "electric": 0.0 },
+  "vulnerable": { "kinetic": 1.2 }
 }

@@ -2,6 +2,7 @@ extends Node
 
 # Simulation and gameplay events
 signal hit(target: Node, source: Node, amount: int, damage_type: String)
+signal enemy_killed(enemy_id: String, pos: Vector2)
 signal hopped(from_target: Node, to_target: Node)
 signal door_changed(door_id: String, is_open: bool)
 signal pickup_taken(pickup_id: String, kind: String, amount: int)

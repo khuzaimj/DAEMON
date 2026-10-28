@@ -127,7 +127,16 @@ func _init() -> void:
 				printerr("ERROR: Enemy %s references non-existent AI '%s'" % [enemy_id, ref_ai])
 				error_count += 1
 
-	# 8. Collect and validate all room files
+	# 8. Validate bosses (data/bosses/*.json)
+	for path: String in parsed_data.keys():
+		if path.begins_with("res://data/bosses/") and path.ends_with(".json"):
+			var boss_data: Dictionary = parsed_data[path] as Dictionary
+			var boss_errors: Array[String] = Schema.validate_boss(boss_data, path)
+			for err_msg: String in boss_errors:
+				printerr("ERROR: " + err_msg)
+				error_count += 1
+
+	# 9. Collect and validate all room files
 	var rooms_by_id: Dictionary = {}
 	var room_paths: Dictionary = {}
 	for path: String in parsed_data.keys():

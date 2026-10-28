@@ -46,6 +46,13 @@ var garage_selected_idx: int = 0
 var current_dock: Dock = null
 var node_pilot_controller: Controller = null
 
+var combat_system: CombatSystem = CombatSystem.new()
+var defeated_enemies_in_room: Array[String] = []
+var hit_stop_ticks: int = 0
+var screen_shake_ticks: int = 0
+var screen_shake_intensity: float = 0.0
+var screen_shake_offset: Vector2 = Vector2.ZERO
+
 func _ready() -> void:
 	if hijack_fsm != null:
 		var game_node: Node = get_node_or_null("/root/Game")
@@ -120,6 +127,10 @@ func register_machine(m: Machine) -> void:
 	if not machines.has(m):
 		machines.append(m)
 
+func unregister_machine(m: Machine) -> void:
+	if machines.has(m):
+		machines.erase(m)
+
 func register_crate(c: Crate) -> void:
 	if not crates.has(c):
 		crates.append(c)
@@ -128,7 +139,30 @@ func register_projectile(p: Projectile) -> void:
 	if not projectiles.has(p):
 		projectiles.append(p)
 
+func trigger_hit_stop(ticks: int = 3) -> void:
+	hit_stop_ticks = maxi(hit_stop_ticks, ticks)
+
+func trigger_screen_shake(amount_px: float = 2.0, duration_ticks: int = 6) -> void:
+	screen_shake_intensity = amount_px
+	screen_shake_ticks = duration_ticks
+
+func respawn_room_enemies() -> void:
+	defeated_enemies_in_room.clear()
+	if active_room != null and active_room.room_data.has("entities"):
+		_spawn_room_entities(active_room.room_data["entities"])
+
 func _process(_delta: float) -> void:
+	# Screen shake offset in integer pixels
+	if screen_shake_ticks > 0:
+		screen_shake_ticks -= 1
+		var ox: float = round(randf_range(-screen_shake_intensity, screen_shake_intensity))
+		var oy: float = round(randf_range(-screen_shake_intensity, screen_shake_intensity))
+		screen_shake_offset = Vector2(ox, oy)
+		position = screen_shake_offset
+	elif screen_shake_offset != Vector2.ZERO:
+		screen_shake_offset = Vector2.ZERO
+		position = Vector2.ZERO
+
 	if hijack_fsm != null and (hijack_fsm.state == HijackFSM.State.TARGETING or hijack_fsm.state == HijackFSM.State.TRANSIT):
 		queue_redraw()
 	elif player_machine != null and player_machine.pin_position != Vector2.ZERO:
@@ -176,6 +210,10 @@ func _physics_process(delta: float) -> void:
 	if game_node != null and game_node.get("paused") == true:
 		return
 
+	if hit_stop_ticks > 0:
+		hit_stop_ticks -= 1
+		return
+
 	var t0: int = Time.get_ticks_usec()
 	if game_node != null and game_node.has_method("advance_tick"):
 		game_node.call("advance_tick")
@@ -194,7 +232,8 @@ func _physics_process(delta: float) -> void:
 	_step_movement(delta)
 	# System 6: logic (P5)
 	_step_logic()
-	# System 7: combat (P9)
+	# System 7: combat (P4)
+	_step_combat(delta)
 	# System 8: world (room transitions)
 	_step_world()
 	# System 9: cleanup
@@ -205,6 +244,10 @@ func _physics_process(delta: float) -> void:
 	_record_input_tick()
 	_update_hud()
 	_update_perf_overlay()
+
+func _step_combat(delta: float) -> void:
+	if combat_system != null:
+		combat_system.step(self, tick_count, delta)
 
 func _step_logic() -> void:
 	if is_inside_tree():

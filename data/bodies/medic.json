@@ -15,5 +15,7 @@
   "sprite": "medic",
   "clearance": 0,
   "garage_cost": 80,
-  "unlock_zone": "kernel"
+  "unlock_zone": "kernel",
+  "resist": { "electric": 0.8 },
+  "vulnerable": {}
 }

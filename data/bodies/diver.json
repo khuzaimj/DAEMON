@@ -15,5 +15,7 @@
   "sprite": "diver",
   "clearance": 0,
   "garage_cost": 65,
-  "unlock_zone": "swap"
+  "unlock_zone": "swap",
+  "resist": { "thermal": 0.5 },
+  "vulnerable": { "electric": 1.5 }
 }
